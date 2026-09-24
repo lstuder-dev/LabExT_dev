@@ -18,13 +18,12 @@ wavelength = 1530 #nm
 power = 1.0 #dBm
 
 #data gathering variables
-step_size = 1 #1 micro meter
-number_of_data_points = 21 #20x20 micro meter
+step_size = 10 #1 micro meter
+number_of_data_points = 3 #20x20 micro meter
 
 #define stages and instruments
 
-left_stage = Stage3DSmarAct(addresses[0])
-right_stage = Stage3DSmarAct(addresses[1])
+addresses = Stage6DSmarActMCS2.find_stage_addresses()
 
 print("Detected stages:")
 for address in addresses:
