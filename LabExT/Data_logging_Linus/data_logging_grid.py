@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 
 
-from LabExT.Movement.Stages.Stage3DSmarAct import Stage3DSmarAct
+from LabExT.Movement.Stages.Stage6DSmarActMCS2 import Stage6DSmarActMCS2
 
 from LabExT.Instruments.LaserMainframeKeysight import LaserMainframeKeysight
 from LabExT.Instruments.PowerMeterN7744A import PowerMeterN7744A
@@ -22,9 +22,16 @@ step_size = 1 #1 micro meter
 number_of_data_points = 21 #20x20 micro meter
 
 #define stages and instruments
-addresses = Stage3DSmarAct.find_stage_addresses()
+
 left_stage = Stage3DSmarAct(addresses[0])
 right_stage = Stage3DSmarAct(addresses[1])
+
+print("Detected stages:")
+for address in addresses:
+    print(address)
+    
+left_stage = Stage6DSmarActMCS2(addresses[0])
+right_stage = Stage6DSmarActMCS2(addresses[1])
 
 laser = LaserMainframeKeysight(visa_address="TCPIP::100.65.34.13::INSTR", channel = 0)
 powermeter = PowerMeterN7744A(visa_address="TCPIP0::100.65.33.173::INSTR", channel = 1)
