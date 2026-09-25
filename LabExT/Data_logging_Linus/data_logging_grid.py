@@ -16,7 +16,7 @@ from LabExT.Instruments.PowerMeterN7744A import PowerMeterN7744A
 #laser variables
 l_unit = 'dBm'
 l_power = 1.0
-l_wavelength = 1530 #nm
+l_wavelength = 1510 #nm
 
 #powermeter variables
 pm_unit = 'dbm'
@@ -24,8 +24,8 @@ pm_average_time = 0.1
 pm_autoranging = True
 
 #data gathering variables
-step_size = 10 #micrometers
-number_of_data_points = 3
+step_size = 0.5 #micrometers
+number_of_data_points = 31
 
 #define stages and instruments
 
@@ -123,7 +123,7 @@ left_data = np.array(left_list)
 right_data = np.array(right_list)
 
 program_folder = Path(__file__).resolve().parent
-csv_file = program_folder / f'measurement_{l_wavelength}_{l_power}.csv'
+csv_file = program_folder / f'measurement_{l_wavelength}_{l_power}_{number_of_data_points}_{step_size}.csv'
 
 with open(csv_file, 'w',newline='') as csvfile:
     writer = csv.writer(csvfile)
