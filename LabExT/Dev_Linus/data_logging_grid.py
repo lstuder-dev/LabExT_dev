@@ -41,11 +41,11 @@ right_stage = Stage6DSmarActMCS2(addresses[1])
 laser = LaserMainframeKeysight(visa_address="TCPIP::100.65.34.13::INSTR", channel = 0)
 powermeter = PowerMeterN7744A(visa_address="TCPIP0::100.65.33.173::INSTR", channel = 1)
 
+start_time = time.perf_counter()
+
 #empty matrix for data collection
 left_list = []
 right_list = []
-
-
 
 try:
     #setup stages
@@ -118,12 +118,17 @@ finally:
         except Exception as e:
             print(f'Cleanup step failed: {e}')
 
+end_time = time.perf_counter()
+
+print(f'Measurement time:{end_time-start_time}')
+
 #data saving
 left_data = np.array(left_list)
 right_data = np.array(right_list)
 
+date_prefix = time.strftime('%y%m%d')
 program_folder = Path(__file__).resolve().parent
-csv_file = program_folder / f'measurement_{l_wavelength}_{l_power}_{number_of_data_points}_{step_size}.csv'
+csv_file = program_folder / f'{date_prefix}_measurement_{l_wavelength}_{l_power}_{number_of_data_points}_{step_size}.csv'
 
 with open(csv_file, 'w',newline='') as csvfile:
     writer = csv.writer(csvfile)
