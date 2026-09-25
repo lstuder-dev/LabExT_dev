@@ -16,7 +16,7 @@ from LabExT.Instruments.PowerMeterN7744A import PowerMeterN7744A
 #laser variables
 l_unit = 'dBm'
 l_power = 1.0
-l_wavelength = 1510 #nm
+l_wavelength = 1570 #nm
 
 #powermeter variables
 pm_unit = 'dbm'
