@@ -5,12 +5,10 @@ import csv
 import numpy as np
 from pathlib import Path
 
-
 from LabExT.Movement.Stages.Stage6DSmarActMCS2 import Stage6DSmarActMCS2
 
 from LabExT.Instruments.LaserMainframeKeysight import LaserMainframeKeysight
 from LabExT.Instruments.PowerMeterN7744A import PowerMeterN7744A
-
 
 #variables
 #laser variables

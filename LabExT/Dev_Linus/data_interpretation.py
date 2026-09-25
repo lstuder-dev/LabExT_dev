@@ -13,7 +13,6 @@ def data_preparation(number_of_points, used_array):
     Z = 10 ** (Z / 10)
 
     return X,Y,Z
-    
 
 def plot_data(number_of_points,first_array,second_array):
     plt.style.use('_mpl-gallery')
@@ -75,7 +74,7 @@ def plot_data_heatmap(number_of_points,first_array,second_array):
     plt.show()
 
 #readout data
-file_name = 'measurement_1550_1.0_31_0.5'
+file_name = '260925_measurement_1580_1.0_31_0.5'
 
 parameter_list = []
 left_list = []
@@ -100,8 +99,6 @@ right_array = np.asarray(right_list, dtype=np.float32)
 match = re.search(r'grid dimension:(\d+)', parameter_list[0][2])
 N = int(match.group(1))
 
-
 #plot data
-#plot_data(N, left_array, right_array)
+plot_data(N, left_array, right_array)
 plot_data_heatmap(N, left_array, right_array)
-
