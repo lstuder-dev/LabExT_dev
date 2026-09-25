@@ -14,12 +14,18 @@ from LabExT.Instruments.PowerMeterN7744A import PowerMeterN7744A
 
 #variables
 #laser variables
-wavelength = 1530 #nm
-power = 1.0 #dBm
+l_unit = 'dBm'
+l_power = 1.0
+l_wavelength = 1530 #nm
+
+#powermeter variables
+pm_unit = 'dbm'
+pm_average_time = 0.1
+pm_autoranging = True
 
 #data gathering variables
-step_size = 10 #1 micro meter
-number_of_data_points = 3 #20x20 micro meter
+step_size = 10 #micrometers
+number_of_data_points = 3
 
 #define stages and instruments
 
@@ -52,17 +58,22 @@ try:
 
     #setup laser
     laser.open()
-    laser.wavelength = wavelength
-    laser.power = power
-    laser.unit = 'dBm'
+    laser.wavelength = l_wavelength
+    laser.power = l_power
+    laser.unit = l_unit
     laser.enable = True
 
 
     #setup powermeter
     powermeter.open()
-    powermeter.wavelength = wavelength
-    powermeter.unit = 'dbm'
-    powermeter.averagetime = 0.1
+    powermeter.autoranging = pm_autoranging
+    powermeter.wavelength = l_wavelength
+    powermeter.unit = pm_unit
+    powermeter.averagetime = pm_average_time
+
+    #test
+    print(laser.wavelength,laser.power,laser.unit,powermeter.power,powermeter.unit)
+
 
     #data gathering definitions
     left_abs_max_pos=left_stage.get_position()
@@ -112,10 +123,12 @@ left_data = np.array(left_list)
 right_data = np.array(right_list)
 
 program_folder = Path(__file__).resolve().parent
-csv_file = program_folder / "measurements.csv"
+csv_file = program_folder / f'measurement_{l_wavelength}_{l_power}.csv'
 
 with open(csv_file, 'w',newline='') as csvfile:
     writer = csv.writer(csvfile)
+    writer.writerow([f'laser wavelength:{l_wavelength}nm',f'set power:{l_power}{l_unit}',f'grid dimension:{number_of_data_points}'])
+    writer.writerow(['side','x position', 'y position', 'power'])
     for row in left_data:
         writer.writerow(row)
     for row in right_data:
