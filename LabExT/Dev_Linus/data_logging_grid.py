@@ -11,6 +11,8 @@ from LabExT.Instruments.LaserMainframeKeysight import LaserMainframeKeysight
 from LabExT.Instruments.PowerMeterN7744A import PowerMeterN7744A
 
 #variables
+chip_id = 'ID1'
+
 #laser variables
 l_unit = 'dBm'
 l_power = 1.0
@@ -126,7 +128,7 @@ right_data = np.array(right_list)
 
 date_prefix = time.strftime('%y%m%d')
 program_folder = Path(__file__).resolve().parent
-csv_file = program_folder / f'{date_prefix}_measurement_{l_wavelength}_{l_power}_{number_of_data_points}_{step_size}.csv'
+csv_file = program_folder / f'{date_prefix}_measurement_{chip_id}_{l_wavelength}_{l_power}_{number_of_data_points}_{step_size}.csv'
 
 with open(csv_file, 'w',newline='') as csvfile:
     writer = csv.writer(csvfile)

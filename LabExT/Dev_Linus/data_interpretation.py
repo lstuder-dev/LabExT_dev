@@ -10,7 +10,7 @@ def data_preparation(number_of_points, used_array):
     X = used_array[:, 0].reshape(number_of_points,number_of_points)
     Y = used_array[:, 1].reshape(number_of_points,number_of_points)
     Z = used_array[:, 2].reshape(number_of_points,number_of_points)
-    Z = 10 ** (Z / 10)
+    #Z = 10 ** (Z / 10)
 
     return X,Y,Z
 
