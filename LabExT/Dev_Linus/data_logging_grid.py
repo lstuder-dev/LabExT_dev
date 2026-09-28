@@ -16,7 +16,7 @@ chip_id = 'ID1'
 #laser variables
 l_unit = 'dBm'
 l_power = 1.0
-l_wavelength = 1580 #nm
+l_wavelength = 1530 #nm
 
 #powermeter variables
 pm_unit = 'dbm'
@@ -24,8 +24,8 @@ pm_average_time = 0.1
 pm_autoranging = True
 
 #data gathering variables
-step_size = 0.5 #micrometers
-number_of_data_points = 31
+step_size = 0.25 #micrometers
+number_of_data_points = 41
 
 #define stages and instruments
 
