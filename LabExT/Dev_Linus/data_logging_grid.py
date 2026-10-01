@@ -16,7 +16,7 @@ chip_id = 'ID3'
 #laser variables
 l_unit = 'dBm'
 l_power = 1.0
-l_wavelength = 1510 #nm
+l_wavelength = 1590 #nm
 
 #powermeter variables
 pm_unit = 'dbm'
