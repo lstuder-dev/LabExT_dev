@@ -1,0 +1,89 @@
+import time
+import csv
+import re
+
+import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
+from scipy.optimize import curve_fit
+from skimage.feature import peak_local_max
+
+def csv_to_arrays(file_name):
+    program_folder = Path(__file__).resolve().parent
+
+    parameter_list = []
+    left_list = []
+    right_list = []
+
+    csv_file = program_folder / f'{file_name}.csv'
+
+    with open(csv_file, newline='') as csvfile:
+        data = list(csv.reader(csvfile, delimiter=','))
+        for i in range(len(data)):
+            if i <= 1:
+                parameter_list.append(data[i])
+            elif data[i][0]== 'left':
+                left_list.append([float(v) for v in data[i][1:]])
+            else:
+                right_list.append([float(v) for v in data[i][1:]])
+
+    left_array = np.asarray(left_list, dtype=np.float32)
+    right_array = np.asarray(right_list, dtype=np.float32)
+
+    match = re.search(r'grid dimension:(\d+)', parameter_list[0][2])
+    N = int(match.group(1))
+
+    XL,YL,ZL = csv_to_arrays_helper(left_array,N)
+    XR,YR,ZR = csv_to_arrays_helper(right_array,N)
+    
+
+    return XL,YL,ZL,XR,YR,ZR
+
+def csv_to_arrays_helper(used_array, number_of_points):
+    X = used_array[:, 0].reshape(number_of_points,number_of_points)
+    Y = used_array[:, 1].reshape(number_of_points,number_of_points)
+    Z = used_array[:, 2].reshape(number_of_points,number_of_points)
+    Z = 10**(Z / 10)
+
+    return X,Y,Z
+
+def gaussian(x,amp,mu,sigma):
+    return amp*np.exp(-0.5*((x-mu)/sigma)**2)
+
+def r_squared_single_dim(x_values, z_values):
+    p0 = [max(z_values), np.mean(x_values), np.std(x_values)]
+
+    popt, _ = curve_fit(gaussian,x_values,z_values,p0=p0,maxfev=100000)
+
+    residuals = z_values - gaussian(x_values,*popt)
+    squares = (z_values-np.mean(z_values))**2
+
+    r_squared = 1 - (np.sum(residuals**2))/(np.sum(squares))
+
+    return r_squared
+
+def r_squared_average(used_array, values):
+    r_squared_average = []
+    for i in range(np.shape(used_array)[0]):
+        r_squared_average.append(r_squared_single_dim(used_array[:,i],values[:,i]))
+    return np.mean(r_squared_average)
+
+def r_squared_values(XL,YL,ZL,XR,YR,ZR):
+    i_max, j_max = np.unravel_index(np.argmax(ZL), ZL.shape)
+    print(f"For the left stage, R squared in x-dir: {r_squared_single_dim(XL[:,j_max],ZL[:,j_max])} and R squared in y-dir: {r_squared_single_dim(YL[i_max,:],ZL[i_max,:])}")
+    i_max, j_max = np.unravel_index(np.argmax(ZR), ZR.shape)
+    print(f"For the right stage, R squared in x-dir: {r_squared_single_dim(XR[:,j_max],ZR[:,j_max])} and R squared in y-dir: {r_squared_single_dim(YR[i_max,:],ZR[i_max,:])}")
+
+def peak_local_max(ZL):
+    coordinates = peak_local_max(ZL, min_distance=3)
+    print(f"Number of local maxima: {np.shape(coordinates)[0]}, their coordinates are: {coordinates}")
+    
+
+
+file_name = '260928_measurement_ID1_1530_1.0_41_0.25'
+
+XL,YL,ZL,XR,YR,ZR = csv_to_arrays(file_name)
+
+r_squared_values(XL,YL,ZL,XR,YR,ZR)
+peak_local_max(ZL)
+
