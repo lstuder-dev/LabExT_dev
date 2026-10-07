@@ -10,11 +10,11 @@ def data_preparation(number_of_points, used_array):
     X = used_array[:, 0].reshape(number_of_points,number_of_points)
     Y = used_array[:, 1].reshape(number_of_points,number_of_points)
     Z = used_array[:, 2].reshape(number_of_points,number_of_points)
-    #Z = 10 ** (Z / 10)
+    Z = 10 ** (Z / 10)
 
     return X,Y,Z
 
-def plot_data(number_of_points,first_array,second_array, tol):
+def plot_data(number_of_points,first_array,second_array, tol, slice_along=None, slice_idx=None):
     plt.style.use('_mpl-gallery')
 
     XL,YL,ZL = data_preparation(number_of_points, first_array)
@@ -29,16 +29,20 @@ def plot_data(number_of_points,first_array,second_array, tol):
     
     ax_left.set_xlabel('x position (µm)')
     ax_left.set_ylabel('y position (µm)')
-    ax_left.set_zlabel('power (dBm)')
+    ax_left.set_zlabel('power (mW)')
     ax_left.set_title('Left Stage')
 
     ax_right.set_xlabel('x position (µm)')
     ax_right.set_ylabel('y position (µm)')
-    ax_right.set_zlabel('power (dBm)')
+    ax_right.set_zlabel('power (mW)')
     ax_right.set_title('Right Stage')
 
     ridge_and_max(XL,YL,ZL,number_of_points,ax_left,'3D', tol)
     ridge_and_max(XR,YR,ZR,number_of_points,ax_right,'3D', tol)
+
+    #if slice_along is not None and slice_idx is not None:
+    #    add_slice_plane(ax_left, XL, YL, ZL, slice_along, slice_idx)
+    #    add_slice_plane(ax_right, XR, YR, ZR, slice_along, slice_idx)
 
     fig.suptitle(f"{file_name}")
 
@@ -126,7 +130,7 @@ def ridge_and_max(X, Y, used_array, N, axes, dim, tol):
     else:
         axes.scatter(max_coord[0],max_coord[1],c='blue')
 
-def interpretation_script(file_name, program_folder, data_showing, tol):
+def interpretation_script(file_name, program_folder, data_showing, tol,slice_along='y', slice_idx=10):
     #readout data
     #file_name = '260925_measurement_1580_1.0_31_0.5'
 
@@ -154,7 +158,7 @@ def interpretation_script(file_name, program_folder, data_showing, tol):
 
     #plot data
     if data_showing == 1:
-        plot_data(N, left_array, right_array, tol)
+        plot_data(N, left_array, right_array, tol,slice_along='y', slice_idx=10)
         plot_data_heatmap(N, left_array, right_array,file_name,program_folder,data_showing, tol)
     else:
         plot_data_heatmap(N, left_array, right_array,file_name,program_folder,data_showing, tol)
@@ -170,11 +174,37 @@ def ridge_analysis_png_script(program_folder, id_string, tol):
     for name in name_list:
         interpretation_script(name, program_folder,0, tol)
 
+def add_slice_plane(axes, X, Y, Z, slice_along, idx, color='cyan', alpha=0.3):
+    """
+    Draw a vertical reference plane through the 3D surface at one slice,
+    so the chosen x-slice or y-slice can be compared visually against the
+    full surface.
+
+    slice_along='x': plane at fixed column idx (constant y, x and z vary)
+    slice_along='y': plane at fixed row idx (constant x, y and z vary)
+    """
+    zmin, zmax = np.nanmin(Z), np.nanmax(Z)
+
+    if slice_along == 'x':
+        # fixed y = Y[0, idx]; plane spans the full x-range and full z-range
+        x_vals = X[:, idx]
+        y_fixed = Y[0, idx]
+        plane_x, plane_z = np.meshgrid(x_vals, np.linspace(zmin, zmax, 2))
+        plane_y = np.full_like(plane_x, y_fixed)
+    else:
+        # fixed x = X[idx, 0]; plane spans the full y-range and full z-range
+        y_vals = Y[idx, :]
+        x_fixed = X[idx, 0]
+        plane_y, plane_z = np.meshgrid(y_vals, np.linspace(zmin, zmax, 2))
+        plane_x = np.full_like(plane_y, x_fixed)
+
+    axes.plot_surface(plane_x, plane_y, plane_z, color=color, alpha=alpha, shade=False)
+
 program_folder = Path(__file__).resolve().parent
 
-file_name = '260925_measurement_1570_1.0_31_0.5'
+file_name = '260928_measurement_ID1_1580_1.0_41_0.25'
 id_name = 'ID7'
 ridge_tolerance = 0
 
-ridge_analysis_png_script(program_folder, id_name, ridge_tolerance)
-#interpretation_script(file_name, program_folder,1, ridge_tolerance)
+#ridge_analysis_png_script(program_folder, id_name, ridge_tolerance)
+interpretation_script(file_name, program_folder,1, ridge_tolerance, slice_along='y', slice_idx=10)

@@ -1,0 +1,146 @@
+import csv
+import re
+
+import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
+from scipy.optimize import curve_fit
+
+def csv_to_arrays(file_name):
+    program_folder = Path(__file__).resolve().parent
+
+    parameter_list = []
+    left_list = []
+    right_list = []
+
+    csv_file = program_folder / f'{file_name}.csv'
+
+    with open(csv_file, newline='') as csvfile:
+        data = list(csv.reader(csvfile, delimiter=','))
+        for i in range(len(data)):
+            if i <= 1:
+                parameter_list.append(data[i])
+            elif data[i][0]== 'left':
+                left_list.append([float(v) for v in data[i][1:]])
+            else:
+                right_list.append([float(v) for v in data[i][1:]])
+
+    left_array = np.asarray(left_list, dtype=np.float32)
+    right_array = np.asarray(right_list, dtype=np.float32)
+
+    match = re.search(r'grid dimension:(\d+)', parameter_list[0][2])
+    N = int(match.group(1))
+
+    XL,YL,ZL = csv_to_arrays_helper(left_array,N)
+    XR,YR,ZR = csv_to_arrays_helper(right_array,N)
+    
+
+    return XL,YL,ZL,XR,YR,ZR
+
+def csv_to_arrays_helper(used_array, number_of_points):
+    X = used_array[:, 0].reshape(number_of_points,number_of_points)
+    Y = used_array[:, 1].reshape(number_of_points,number_of_points)
+    Z = used_array[:, 2].reshape(number_of_points,number_of_points)
+    Z = 10**(Z / 10) # dBm -> mW
+
+    return X,Y,Z
+
+def gaussian(x,amp,mu,sigma):
+    return amp*np.exp(-0.5*((x-mu)/sigma)**2)
+
+def r_squared_single_dim(x_values, z_values):
+    p0 = [max(z_values), np.mean(x_values), np.std(x_values)]
+
+    try:
+        popt, _ = curve_fit(gaussian,x_values,z_values,p0=p0,maxfev=1000000)
+    except(RuntimeError, RuntimeWarning):
+        return None
+
+    residuals = z_values - gaussian(x_values,*popt)
+    ss_tot = np.sum((z_values - np.mean(z_values)) ** 2)
+    if ss_tot == 0:
+        return None
+
+    return 1 - np.sum(residuals ** 2) / ss_tot
+
+def x_slice(X, Y, Z, col_idx):
+    return X[:, col_idx], Z[:, col_idx]
+
+def y_slice(X, Y, Z, row_idx):
+    return Y[row_idx, :], Z[row_idx, :]
+
+def find_min_r_squared(X, Y, Z, center_idx, rad, slice_along):
+    N = X.shape[0]
+    indices = range(N) if rad == 0 else range(max(center_idx - rad, 0), min(center_idx + rad + 1, N))
+
+    min_r, min_idx, n_failed = 1.0, None, 0
+    for idx in indices:
+        if slice_along == 'x':
+            coords, z = x_slice(X, Y, Z, idx)
+        else:
+            coords, z = y_slice(X, Y, Z, idx)
+
+        r = r_squared_single_dim(coords, z)
+        if r is None:
+            n_failed += 1
+            continue
+        if r < min_r:
+            min_r, min_idx = r, idx
+
+    return min_r, min_idx, n_failed
+
+def r_squared_grid(XL, YL, ZL, XR, YR, ZR, radius):
+    for label, X, Y, Z in [('left', XL, YL, ZL), ('right', XR, YR, ZR)]:
+        i_max, j_max = np.unravel_index(np.argmax(Z), Z.shape)
+
+        px, pz = x_slice(X, Y, Z, j_max)
+        py, pzy = y_slice(X, Y, Z, i_max)
+        print(f"[{label}] peak-slice R²: x-dir={r_squared_single_dim(px, pz)}, "
+              f"y-dir={r_squared_single_dim(py, pzy)}")
+
+        min_r_x, idx_x, fail_x = find_min_r_squared(X, Y, Z, i_max, radius, slice_along='x')
+        min_r_y, idx_y, fail_y = find_min_r_squared(X, Y, Z, j_max, radius, slice_along='y')
+
+        print(f"[{label}] min R²: x-dir={min_r_x} (col {idx_x}, {fail_x} failed), "
+              f"y-dir={min_r_y} (row {idx_y}, {fail_y} failed)")
+
+        if idx_x is not None:
+            coords, z = x_slice(X, Y, Z, idx_x)
+            plot_slice_with_fit(coords, z, title=f"{label.title()} stage, worst x-slice (col {idx_x})")
+
+        if idx_y is not None:
+            coords, z = y_slice(X, Y, Z, idx_y)
+            plot_slice_with_fit(coords, z, title=f"{label.title()} stage, worst y-slice (row {idx_y})")     
+
+def plot_slice_with_fit(coord_values, z_values, title="Slice"):
+    p0 = [max(z_values), np.mean(coord_values), np.std(coord_values)]
+    try:
+        popt, _ = curve_fit(gaussian, coord_values, z_values, p0=p0, maxfev=10000)
+    except RuntimeError:
+        print(f"{title}: fit did not converge, plotting measured data only.")
+        popt = None
+
+    plt.figure(figsize=(7, 5))
+    plt.plot(coord_values, z_values, 'o', label='measured', color='tab:blue')
+
+    if popt is not None:
+        x_fit = np.linspace(coord_values.min(), coord_values.max(), 300)
+        plt.plot(x_fit, gaussian(x_fit, *popt), '-', label='Gaussian fit', color='tab:orange')
+        r = r_squared_single_dim(coord_values, z_values)
+        plt.title(f"{title}  (R² = {r:.4f})" if r is not None else f"{title} (fit failed)")
+    else:
+        plt.title(f"{title}  (fit failed)")
+
+    plt.xlabel('position (µm)')
+    plt.ylabel('power (mW)')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+file_name = '260928_measurement_ID1_1580_1.0_41_0.25'
+
+XL,YL,ZL,XR,YR,ZR = csv_to_arrays(file_name)
+
+r_squared_grid(XL,YL,ZL,XR,YR,ZR,0)
+
+
