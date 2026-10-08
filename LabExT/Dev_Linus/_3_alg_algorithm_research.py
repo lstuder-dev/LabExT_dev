@@ -387,7 +387,7 @@ def bayesian_search(measure_fn, start_coordinates, search_radius,
 
 # --------------------------------------------------------------------------- Grid Search Metric
 
-def grid_search(Zfunction, start, radius):
+def grid_search(Zfunction, start):
     maxval = -np.inf
     maxcoords = list(start)
 
@@ -665,15 +665,12 @@ def run_all_methods(Zfunction, X, Y, Z, side_label, n_bo_seeds=5):
                 "best_power": power, "n_samples": info["n_samples"],
             })
     
-
-    
-    coords, power, info = grid_search(Zfunction, start, radius)
+    coords, power, info = grid_search(Zfunction, start)
     rows.append({
                 "side": side_label, "method": "grid_search",
                 "seed": None, "best_x": coords[0], "best_y": coords[1],
                 "best_power": power, "n_samples": info["n_samples"],
             })
-
 
     for seed in range(n_bo_seeds):
         coords, power, info = bayesian_search(Zfunction, start, radius, n_iter=30, seed=seed)

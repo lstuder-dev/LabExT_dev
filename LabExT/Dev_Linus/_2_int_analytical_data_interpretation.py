@@ -89,29 +89,6 @@ def find_min_r_squared(X, Y, Z, center_idx, rad, slice_along):
 
     return min_r, min_idx, n_failed
 
-def r_squared_grid(XL, YL, ZL, XR, YR, ZR, radius):
-    for label, X, Y, Z in [('left', XL, YL, ZL), ('right', XR, YR, ZR)]:
-        i_max, j_max = np.unravel_index(np.argmax(Z), Z.shape)
-
-        px, pz = x_slice(X, Y, Z, j_max)
-        py, pzy = y_slice(X, Y, Z, i_max)
-        print(f"[{label}] peak-slice R²: x-dir={r_squared_single_dim(px, pz)}, "
-              f"y-dir={r_squared_single_dim(py, pzy)}")
-
-        min_r_x, idx_x, fail_x = find_min_r_squared(X, Y, Z, i_max, radius, slice_along='x')
-        min_r_y, idx_y, fail_y = find_min_r_squared(X, Y, Z, j_max, radius, slice_along='y')
-
-        print(f"[{label}] min R²: x-dir={min_r_x} (col {idx_x}, {fail_x} failed), "
-              f"y-dir={min_r_y} (row {idx_y}, {fail_y} failed)")
-
-        if idx_x is not None:
-            coords, z = x_slice(X, Y, Z, idx_x)
-            plot_slice_with_fit(coords, z, title=f"{label.title()} stage, worst x-slice (col {idx_x})")
-
-        if idx_y is not None:
-            coords, z = y_slice(X, Y, Z, idx_y)
-            plot_slice_with_fit(coords, z, title=f"{label.title()} stage, worst y-slice (row {idx_y})")     
-
 def plot_slice_with_fit(coord_values, z_values, title="Slice"):
     p0 = [max(z_values), np.mean(coord_values), np.std(coord_values)]
     try:
@@ -136,6 +113,32 @@ def plot_slice_with_fit(coord_values, z_values, title="Slice"):
     plt.legend()
     plt.tight_layout()
     plt.show()
+
+def r_squared_grid(XL, YL, ZL, XR, YR, ZR, radius):
+    for label, X, Y, Z in [('left', XL, YL, ZL), ('right', XR, YR, ZR)]:
+        i_max, j_max = np.unravel_index(np.argmax(Z), Z.shape)
+
+        #gets slices in of x and y at maximum indices
+        px, pz = x_slice(X, Y, Z, j_max)
+        py, pzy = y_slice(X, Y, Z, i_max)
+
+        print(f"[{label}] peak-slice R²: x-dir={r_squared_single_dim(px, pz)}, "
+              f"y-dir={r_squared_single_dim(py, pzy)}")
+
+        min_r_x, idx_x, fail_x = find_min_r_squared(X, Y, Z, i_max, radius, slice_along='x')
+        min_r_y, idx_y, fail_y = find_min_r_squared(X, Y, Z, j_max, radius, slice_along='y')
+
+        print(f"[{label}] min R²: x-dir={min_r_x} (col {idx_x}, {fail_x} failed), "
+              f"y-dir={min_r_y} (row {idx_y}, {fail_y} failed)")
+
+        if idx_x is not None:
+            coords, z = x_slice(X, Y, Z, idx_x)
+            plot_slice_with_fit(coords, z, title=f"{label.title()} stage, worst x-slice (col {idx_x})")
+
+        if idx_y is not None:
+            coords, z = y_slice(X, Y, Z, idx_y)
+            plot_slice_with_fit(coords, z, title=f"{label.title()} stage, worst y-slice (row {idx_y})")     
+
 
 file_name = '260928_measurement_ID1_1580_1.0_41_0.25'
 

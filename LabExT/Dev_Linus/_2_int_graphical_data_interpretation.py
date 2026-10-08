@@ -1,4 +1,3 @@
-import time
 import csv
 import re
 
@@ -6,90 +5,47 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-def data_preparation(number_of_points, used_array):
+def csv_to_arrays(file_name):
+    program_folder = Path(__file__).resolve().parent
+
+    parameter_list = []
+    left_list = []
+    right_list = []
+
+    csv_file = program_folder / f'{file_name}.csv'
+
+    with open(csv_file, newline='') as csvfile:
+        data = list(csv.reader(csvfile, delimiter=','))
+        for i in range(len(data)):
+            if i <= 1:
+                parameter_list.append(data[i])
+            elif data[i][0]== 'left':
+                left_list.append([float(v) for v in data[i][1:]])
+            else:
+                right_list.append([float(v) for v in data[i][1:]])
+
+    left_array = np.asarray(left_list, dtype=np.float32)
+    right_array = np.asarray(right_list, dtype=np.float32)
+
+    match = re.search(r'grid dimension:(\d+)', parameter_list[0][2])
+    N = int(match.group(1))
+
+    XL,YL,ZL = csv_to_arrays_helper(left_array, N)
+    XR,YR,ZR = csv_to_arrays_helper(right_array, N)
+    
+
+    return N, XL, YL, ZL, XR, YR, ZR
+
+def csv_to_arrays_helper(used_array, number_of_points):
     X = used_array[:, 0].reshape(number_of_points,number_of_points)
     Y = used_array[:, 1].reshape(number_of_points,number_of_points)
     Z = used_array[:, 2].reshape(number_of_points,number_of_points)
-    Z = 10 ** (Z / 10)
+    Z = 10**(Z / 10) # dBm -> mW
 
     return X,Y,Z
 
-def plot_data(number_of_points,first_array,second_array, tol, slice_along=None, slice_idx=None):
-    plt.style.use('_mpl-gallery')
-
-    XL,YL,ZL = data_preparation(number_of_points, first_array)
-    XR,YR,ZR = data_preparation(number_of_points, second_array)
-    
-    # Plot the surface
-    fig, (ax_left, ax_right) = plt.subplots(1, 2, subplot_kw={"projection": "3d"}, figsize=(15, 8))
-
-    ax_left.plot_surface(XL,YL,ZL,cmap="Oranges",alpha=0.6)
-    ax_right.plot_surface(XR,YR,ZR,cmap="Oranges",alpha=0.6)
-
-    
-    ax_left.set_xlabel('x position (µm)')
-    ax_left.set_ylabel('y position (µm)')
-    ax_left.set_zlabel('power (mW)')
-    ax_left.set_title('Left Stage')
-
-    ax_right.set_xlabel('x position (µm)')
-    ax_right.set_ylabel('y position (µm)')
-    ax_right.set_zlabel('power (mW)')
-    ax_right.set_title('Right Stage')
-
-    ridge_and_max(XL,YL,ZL,number_of_points,ax_left,'3D', tol)
-    ridge_and_max(XR,YR,ZR,number_of_points,ax_right,'3D', tol)
-
-    #if slice_along is not None and slice_idx is not None:
-    #    add_slice_plane(ax_left, XL, YL, ZL, slice_along, slice_idx)
-    #    add_slice_plane(ax_right, XR, YR, ZR, slice_along, slice_idx)
-
-    fig.suptitle(f"{file_name}")
-
-    plt.show()
-
-def plot_data_heatmap(number_of_points, first_array, second_array, file_name, program_folder, data_showing, tol):
-    plt.style.use('_mpl-gallery')
-
-    XL,YL,ZL = data_preparation(number_of_points, first_array)
-    XR,YR,ZR = data_preparation(number_of_points, second_array)
-    
-    # Plot the surface
-    fig, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(15, 8))
-
-
-    mesh_left = ax_left.pcolormesh(XL,YL,ZL,cmap="grey", shading='auto')
-    mesh_right = ax_right.pcolormesh(XR,YR,ZR,cmap="grey", shading='auto')
-
-    
-    ax_left.set_xlabel('x position (µm)')
-    ax_left.set_ylabel('y position (µm)')
-    ax_left.set_title('Left Stage')
-    ax_left.set_aspect('equal')
-    fig.colorbar(mesh_left, ax=ax_left, label='power (mW)')
-
-    ax_right.set_xlabel('x position (µm)')
-    ax_right.set_ylabel('y position (µm)')
-    ax_right.set_title('Right Stage')
-    ax_right.set_aspect('equal')
-    fig.colorbar(mesh_right, ax=ax_right, label='power (mW)')
-
-    fig.suptitle(f"{file_name}")
-
-    plt.tight_layout()
-
-    ridge_and_max(XL,YL,ZL,number_of_points,ax_left,'2D', tol)
-    ridge_and_max(XR,YR,ZR,number_of_points,ax_right,'2D', tol)
-
-    if data_showing == 0:
-        fig.savefig(program_folder / 'Ridge_analysis' / f'{file_name}.png', dpi=300)
-
-    else:
-        plt.show()
-
 def ridge_and_max(X, Y, used_array, N, axes, dim, tol):
-    maximum = -100
-    max_coord = [X[N//2][N//2],Y[N//2][N//2],used_array[N//2][N//2]]
+    max_coord_and_max = [X[N//2][N//2],Y[N//2][N//2],used_array[N//2][N//2]]
     offset = 0.00001
     tolerance = tol
 
@@ -123,45 +79,72 @@ def ridge_and_max(X, Y, used_array, N, axes, dim, tol):
                     axes.scatter(X[i][j],Y[i][j],c=color)
 
     i_max, j_max = np.unravel_index(np.argmax(used_array), used_array.shape)
-    max_coord = [X[i_max][j_max], Y[i_max][j_max], used_array[i_max][j_max]]
+    max_coord_and_max = [X[i_max][j_max], Y[i_max][j_max], used_array[i_max][j_max]]
 
     if dim=='3D':
-        axes.scatter(max_coord[0],max_coord[1],max_coord[2]+offset,c='blue')
+        axes.scatter(max_coord_and_max[0],max_coord_and_max[1],max_coord_and_max[2]+offset,c='blue')
     else:
-        axes.scatter(max_coord[0],max_coord[1],c='blue')
+        axes.scatter(max_coord_and_max[0],max_coord_and_max[1],c='blue')
 
-def interpretation_script(file_name, program_folder, data_showing, tol,slice_along='y', slice_idx=10):
-    #readout data
-    #file_name = '260925_measurement_1580_1.0_31_0.5'
+def plot_data(number_of_points, XL, YL, ZL, XR, YR, ZR, file_name, tol):
+    plt.style.use('_mpl-gallery')
+    
+    # Plot the surface
+    fig, (ax_left, ax_right) = plt.subplots(1, 2, subplot_kw={"projection": "3d"}, figsize=(15, 8))
 
-    parameter_list = []
-    left_list = []
-    right_list = []
+    ax_left.plot_surface(XL,YL,ZL,cmap="Oranges",alpha=0.6)
+    ax_right.plot_surface(XR,YR,ZR,cmap="Oranges",alpha=0.6)
+    
+    ax_left.set_xlabel('x position (µm)')
+    ax_left.set_ylabel('y position (µm)')
+    ax_left.set_zlabel('power (mW)')
+    ax_left.set_title('Left Stage')
 
-    csv_file = program_folder / f'{file_name}.csv'
+    ax_right.set_xlabel('x position (µm)')
+    ax_right.set_ylabel('y position (µm)')
+    ax_right.set_zlabel('power (mW)')
+    ax_right.set_title('Right Stage')
 
-    with open(csv_file, newline='') as csvfile:
-        data = list(csv.reader(csvfile, delimiter=','))
-        for i in range(len(data)):
-            if i <= 1:
-                parameter_list.append(data[i])
-            elif data[i][0]== 'left':
-                left_list.append([float(v) for v in data[i][1:]])
-            else:
-                right_list.append([float(v) for v in data[i][1:]])
+    ridge_and_max(XL,YL,ZL,number_of_points,ax_left,'3D', tol)
+    ridge_and_max(XR,YR,ZR,number_of_points,ax_right,'3D', tol)
 
-    left_array = np.asarray(left_list, dtype=np.float32)
-    right_array = np.asarray(right_list, dtype=np.float32)
+    fig.suptitle(f"{file_name}")
 
-    match = re.search(r'grid dimension:(\d+)', parameter_list[0][2])
-    N = int(match.group(1))
+    plt.show()
 
-    #plot data
-    if data_showing == 1:
-        plot_data(N, left_array, right_array, tol,slice_along='y', slice_idx=10)
-        plot_data_heatmap(N, left_array, right_array,file_name,program_folder,data_showing, tol)
+def plot_data_heatmap(number_of_points, XL, YL, ZL, XR, YR, ZR, file_name, program_folder, data_showing, tol):
+    plt.style.use('_mpl-gallery')
+
+    # Plot the surface
+    fig, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(15, 8))
+
+    mesh_left = ax_left.pcolormesh(XL,YL,ZL,cmap="grey", shading='auto')
+    mesh_right = ax_right.pcolormesh(XR,YR,ZR,cmap="grey", shading='auto')
+    
+    ax_left.set_xlabel('x position (µm)')
+    ax_left.set_ylabel('y position (µm)')
+    ax_left.set_title('Left Stage')
+    ax_left.set_aspect('equal')
+    fig.colorbar(mesh_left, ax=ax_left, label='power (mW)')
+
+    ax_right.set_xlabel('x position (µm)')
+    ax_right.set_ylabel('y position (µm)')
+    ax_right.set_title('Right Stage')
+    ax_right.set_aspect('equal')
+    fig.colorbar(mesh_right, ax=ax_right, label='power (mW)')
+
+    fig.suptitle(f"{file_name}")
+
+    plt.tight_layout()
+
+    ridge_and_max(XL,YL,ZL,number_of_points,ax_left,'2D', tol)
+    ridge_and_max(XR,YR,ZR,number_of_points,ax_right,'2D', tol)
+
+    if data_showing == 0:
+        fig.savefig(program_folder / 'Ridge_analysis' / f'{file_name}.png', dpi=300)
+        plt.close(fig)
     else:
-        plot_data_heatmap(N, left_array, right_array,file_name,program_folder,data_showing, tol)
+        plt.show()
 
 def find_matching_files(folder, id_string):
     """Return the filename stems (no .csv extension) of every CSV in
@@ -172,33 +155,19 @@ def ridge_analysis_png_script(program_folder, id_string, tol):
     name_list = find_matching_files(program_folder,id_string)
 
     for name in name_list:
-        interpretation_script(name, program_folder,0, tol)
+        script(name, program_folder,0, tol)
 
-def add_slice_plane(axes, X, Y, Z, slice_along, idx, color='cyan', alpha=0.3):
-    """
-    Draw a vertical reference plane through the 3D surface at one slice,
-    so the chosen x-slice or y-slice can be compared visually against the
-    full surface.
+def script(file_name, program_folder, data_showing, tol, id_name = None):
+    N, XL, YL, ZL, XR, YR, ZR = csv_to_arrays(file_name)
 
-    slice_along='x': plane at fixed column idx (constant y, x and z vary)
-    slice_along='y': plane at fixed row idx (constant x, y and z vary)
-    """
-    zmin, zmax = np.nanmin(Z), np.nanmax(Z)
-
-    if slice_along == 'x':
-        # fixed y = Y[0, idx]; plane spans the full x-range and full z-range
-        x_vals = X[:, idx]
-        y_fixed = Y[0, idx]
-        plane_x, plane_z = np.meshgrid(x_vals, np.linspace(zmin, zmax, 2))
-        plane_y = np.full_like(plane_x, y_fixed)
+    #plot data
+    if data_showing == 1:
+        plot_data(N, XL, YL, ZL, XR, YR, ZR, file_name, tol)
+        plot_data_heatmap(N, XL, YL, ZL, XR, YR, ZR,file_name,program_folder,data_showing, tol)
+    elif data_showing == 0:
+        plot_data_heatmap(N, XL, YL, ZL, XR, YR, ZR,file_name,program_folder,data_showing, tol)
     else:
-        # fixed x = X[idx, 0]; plane spans the full y-range and full z-range
-        y_vals = Y[idx, :]
-        x_fixed = X[idx, 0]
-        plane_y, plane_z = np.meshgrid(y_vals, np.linspace(zmin, zmax, 2))
-        plane_x = np.full_like(plane_y, x_fixed)
-
-    axes.plot_surface(plane_x, plane_y, plane_z, color=color, alpha=alpha, shade=False)
+        ridge_analysis_png_script(program_folder, id_name, tol)
 
 program_folder = Path(__file__).resolve().parent
 
@@ -206,5 +175,9 @@ file_name = '260928_measurement_ID1_1580_1.0_41_0.25'
 id_name = 'ID7'
 ridge_tolerance = 0
 
-#ridge_analysis_png_script(program_folder, id_name, ridge_tolerance)
-interpretation_script(file_name, program_folder,1, ridge_tolerance, slice_along='y', slice_idx=10)
+#0 for recording of single measurement heatmap with "file_name"
+#1 for displaying of data with "file_name" in 3D and as a heatmap
+#2 for recording of  measurement heatmap of all data with "id_name" 
+display_data = 1
+
+script(file_name, program_folder, display_data, ridge_tolerance, id_name)
