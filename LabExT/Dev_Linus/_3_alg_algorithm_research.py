@@ -694,8 +694,8 @@ def run_batch(folder, id_strings, output_csv):
     all_rows = []
     for file_stem in find_matching_files(folder, id_strings):  # reuse your earlier helper
         X, Y, ZL, ZR = csv_to_arrays(file_stem)
-        Lfunction = RegularGridInterpolator((X, Y), ZL, method='cubic')
-        Rfunction = RegularGridInterpolator((X, Y), ZR, method='cubic')
+        Lfunction = RegularGridInterpolator((X, Y), ZL, method='pchip')
+        Rfunction = RegularGridInterpolator((X, Y), ZR, method='pchip')
 
         for side_label, func, Z in [("left", Lfunction, ZL), ("right", Rfunction, ZR)]:
             measure_fn = lambda coords, f=func: float(f(coords))

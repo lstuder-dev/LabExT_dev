@@ -2,6 +2,7 @@ import csv
 import numpy as np
 from pathlib import Path
 import statistics
+import matplotlib.pyplot as plt
 
 def load_results(csv_path):
     with open(csv_path, newline='') as f:
@@ -15,6 +16,7 @@ def summarize_by_method(my_data_list):
 
     coordinate_methods = ['coordinate_gaussian', 'coordinate_measured', 'coordinate_quadratic']
     other_methods = ['bayesian', 'bisection', 'golden_section', 'grid_search', 'fixed_gradient_ascent']
+
 
     all_lists = {}
     for side in ('left', 'right'):
@@ -57,6 +59,61 @@ def summarize_by_method(my_data_list):
             "avg_samples": statistics.mean(samples) if samples else None,
         }
 
+
+    # Plot 5 figures, each comparing Left vs Right
+    metrics = [
+        ("Averages", "avg"),
+        ("Standard Deviations", "std"),
+        ("Average N Samples", "avg_samples"),
+        ("Highest Values", "max"),
+        ("Lowest Values", "min"),
+    ]
+
+    for title, metric in metrics:
+        fig, axes = plt.subplots(1, 2, figsize=(18, 6))
+        fig.suptitle(title, fontsize=16)
+
+        for ax, side in zip(axes, ("left", "right")):
+            items = sorted(
+                [
+                    (name.removeprefix(f"{side}_"), stats[metric])
+                    for name, stats in results.items()
+                    if name.startswith(f"{side}_")
+                    and stats[metric] is not None
+                ],
+                key=lambda item: item[1],
+                reverse=True,
+            )
+
+            names = [name for name, _ in items]
+            values = [value for _, value in items]
+
+            bars = ax.bar(names, values)
+            ax.set_title(side.title())
+            ax.set_xlabel("Algorithm")
+            ax.set_ylabel(title)
+            ax.tick_params(axis="x", labelrotation=60, labelsize=8)
+            ax.grid(axis="y", linestyle="--", alpha=0.4)
+            ax.set_axisbelow(True)
+
+            # Tight Y-axis bounds to reveal small differences
+            if values and metric != "avg_samples":
+                low, high = min(values), max(values)
+                margin = (high - low) * 0.25 or abs(high) * 0.01
+                ax.set_ylim(max(0, low - margin), high + margin)
+
+            bars_labels = [
+                f"{v:.2e}" if abs(v) < 0.001 else f"{v:.6f}"
+                for v in values
+            ]
+            ax.bar_label(bars, labels=bars_labels, fontsize=7, padding=3)
+
+        fig.tight_layout()
+        fig.savefig(f"algorithm_comparison_{metric}.png", dpi=180)
+        plt.show()
+
+    
+
     LABEL_WIDTH = 33
 
     # Helper function to print a specific metric sorted highest -> lowest per side
@@ -93,6 +150,9 @@ def summarize_by_method(my_data_list):
     print_sorted_metric("Average N Samples", "avg_samples")
     print_sorted_metric("Highest Values", "max")
     print_sorted_metric("Lowest Values", "min")
+
+
+
 
 rows = load_results(Path(__file__).resolve().parent / "_3_algorithm_comparison_results.csv")
 summarize_by_method(rows)

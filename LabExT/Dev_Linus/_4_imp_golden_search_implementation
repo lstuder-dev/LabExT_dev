@@ -1,0 +1,67 @@
+import numpy as np
+
+def golden_section(measure_fn, start_coordinates, radius, 
+                          tolerance, max_samples):
+
+    start_coordinates = [float(v) for v in start_coordinates]
+    rx, ry = (radius,radius) if np.ndim(radius) == 0 else radius
+    x_bounds = (start_coordinates[0]-rx, start_coordinates[0]+rx)
+    y_bounds = (start_coordinates[1]-ry, start_coordinates[1]+ry)
+    positions, powers = [],[]
+
+    def measure(x,y):
+        value = measure_fn([x,y])
+        positions.append([float(x),float(y)])
+        powers.append(value)
+        return value if np.isfinite(value) else -np.inf
+
+    def best_so_far():
+        vals = np.where(np.isfinite(powers), powers, -np.inf)
+        k = int(np.argmax(vals))
+        return list(positions[k]), float(vals[k])
+
+    def line_search(lo, hi, probe, budget):
+        inv_phi = (np.sqrt(5) - 1) / 2  # ~0.618034
+        
+        q1 = hi - inv_phi * (hi - lo)
+        q2 = lo + inv_phi * (hi - lo)
+        fq1, fq2  = probe(q1), probe(q2)
+
+        used = 2
+
+        while hi-lo >= tolerance and used < budget:
+            if fq1 > fq2:
+                hi, q2, fq2 = q2, q1, fq1
+                q1 = hi - inv_phi * (hi - lo)
+                fq1 = probe(q1)
+            else:
+                lo, q1, fq1 = q1, q2, fq2
+                q2 = lo + inv_phi * (hi - lo)
+                fq2 = probe(q2)
+            used += 1
+
+        return (lo+hi)/2
+
+    measure(*start_coordinates)
+
+    max_samples_single_dim = max_samples//2
+
+    max_y = line_search(y_bounds[0],y_bounds[1],lambda v: measure(start_coordinates[0], v), max_samples_single_dim)
+    max_x = line_search(y_bounds[0],y_bounds[1],lambda v: measure(v, max_y), max_samples_single_dim)
+
+    measure(max_x, max_y)
+
+    candidate_coord, candidate_power = best_so_far()
+    
+    info = {
+        "method": 'Golden Search',
+        "start coordinates": start_coordinates,
+        "bounds": [list(x_bounds),list(y_bounds)],
+        "n_samples": len(powers),
+        "n_iterations": max_samples,
+        "sampled coordinates": positions,
+        "sampled powers dBm": powers,
+    }
+
+    return [float(v) for v in candidate_coord], float(candidate_power), info
+    
