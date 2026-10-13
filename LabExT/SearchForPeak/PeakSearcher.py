@@ -35,6 +35,85 @@ from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.PlotControl import PlotData
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 
+#LINS: added in helper function
+def make_sub_measure(measure_all, base, dims):
+    """Expose some dimensions of a larger search space as a small one."""
+    base = list(base)
+    def sub_measure(sub):
+        full = base.copy()
+        for d, v in zip(dims, sub):
+            full[d] = float(v)
+        return measure_all(full)
+    return sub_measure
+
+#LINS: added in Gradient Ascent
+def fixed_gradient_ascent(measure_fn, start_coordinates, radius, number_of_initial_points, max_iterations, 
+                          initial_delta, delta_tolerance, max_samples):
+    
+    start_coordinates = [float(v) for v in start_coordinates]
+    rx, ry = (radius,radius) if np.ndim(radius) == 0 else radius
+    x_bounds = (start_coordinates[0]-rx, start_coordinates[0]+rx)
+    y_bounds = (start_coordinates[1]-ry, start_coordinates[1]+ry)
+    X_abs, power_measurememts = [],[]
+
+
+    def measure(x,y):
+        value = measure_fn([x,y])
+        X_abs.append([float(x),float(y)])
+        power_measurememts.append(value)
+        return value if np.isfinite(value) else -np.inf
+
+    def best_so_far():
+        vals = np.where(np.isfinite(power_measurememts), power_measurememts, -np.inf)
+        k = int(np.argmax(vals))
+        return list(X_abs[k]), float(vals[k])
+
+    measure(*start_coordinates)
+
+    x_points = np.linspace(x_bounds[0],x_bounds[1],number_of_initial_points)
+    x_measured = [measure(x, start_coordinates[1]) for x in x_points]
+    x_max = float(x_points[np.argmax(x_measured)])
+
+
+    y_points = np.linspace(y_bounds[0],y_bounds[1],number_of_initial_points)
+    for y in y_points:
+        measure(x_max,y)
+
+    candidate_coord, candidate_power = best_so_far()
+
+    delta, iter = initial_delta, 0
+    
+    while delta >= delta_tolerance and iter < max_iterations and len(power_measurememts) < max_samples:
+        x,y = candidate_coord
+
+        candidates = [(x+delta, y), (x-delta, y), (x, y+delta), (x, y-delta)]
+        candidates = [c for c in candidates if x_bounds[0] <= c[0] <= x_bounds[1]
+                                  and y_bounds[0] <= c[1] <= y_bounds[1]]
+
+        values = [measure(cx,cy) for cx,cy in candidates]
+
+        if values and max(values) > candidate_power:
+            candidate_power = max(values)
+            candidate_coord = list(candidates[int(np.argmax(values))])
+        else:
+            delta /= 2
+
+        iter += 1
+
+
+    info = {
+        "method": 'Fixed Gradient Ascent',
+        "start coordinates": start_coordinates,
+        "bounds": [list(x_bounds),list(y_bounds)],
+        "n_samples": len(power_measurememts),
+        "n_iterations": iter,
+        "sampled coordinates": X_abs,
+        "sampled powers dBm": power_measurememts,
+    }
+
+    return [float(v) for v in candidate_coord], float(candidate_power), info
+
+
 
 class PeakSearcher(Measurement):
     """
@@ -471,6 +550,10 @@ class PeakSearcher(Measurement):
             X = np.vstack([X, center])
         return np.clip(X, 0.0, 1.0)
 
+    # -------------------------------------------------------------------------
+    # General helpers
+    # -------------------------------------------------------------------------
+
     def _param_value(self, name, default):
         """Read a LabExT parameter safely, keeping compatibility with old settings."""
         # Wrapper methods below can force a mode without requiring a GUI setting.
@@ -617,6 +700,46 @@ class PeakSearcher(Measurement):
         }
         return best_coordinates, best_power, info
 
+    #LINS: added function that runs fixed ascent, splits stages, etc.
+    def _run_fixed_ascent(self, start_coordinates, radius_um, pause_time_ms=200, n_averages=1,
+                      number_of_initial_points=9, max_iterations=30, initial_delta=0.5,
+                      delta_tolerance=0.05, max_samples=80):
+        start = list(map(float, start_coordinates))
+        current = start.copy()
+        dims_per_stage = [(0, 1)] if len(start) == 2 else [(0, 1), (2, 3)]
+
+        def measure_all(coords):
+            return self._measure_power_at_coordinates(coords, pause_time_ms, n_averages)
+
+        start_power = measure_all(start)
+        n_samples = 1
+        per_stage = []
+        try:
+            for dims in dims_per_stage:
+                sub_measure = make_sub_measure(measure_all, current, dims)  # sees the updated current
+                coords, _, info = fixed_gradient_ascent(
+                    sub_measure, [current[d] for d in dims], radius_um,
+                    n_initial=number_of_initial_points, max_iterations=max_iterations,
+                    initial_delta=initial_delta, delta_tolerance=delta_tolerance,
+                    max_samples=max_samples)
+                for d, v in zip(dims, coords):
+                    current[d] = v
+                n_samples += info["n_samples"]
+                per_stage.append({"dims": list(dims), **info})
+
+            final_power = measure_all(current)  # moves there and measures
+            n_samples += 1
+            if not np.isfinite(final_power) or final_power < start_power:
+                current, final_power = start.copy(), start_power
+                self._move_stages_absolute(current)
+        except Exception:
+            self.logger.exception("Fixed gradient ascent failed; moving back to start.")
+            self._move_stages_absolute(start)
+            raise
+
+        info = {"method": "Fixed gradient ascent", "start power dBm": float(start_power),
+                "n_samples": n_samples, "per stage": per_stage}
+        return current, float(final_power), info
 
     def _add_bayesian_projection_plots(self, bayes_info, label_prefix="Bayesian"):
         """Populate the existing left/right plot containers for Bayesian runs.
@@ -750,7 +873,9 @@ class PeakSearcher(Measurement):
             'Peak search optimizer': MeasParamList(options=[
                 'coordinate search',
                 'coordinate search + Bayesian refiner',
-                'Bayesian 4D'
+                'Bayesian 4D',
+                #LINS: added Gradient Ascent
+                'Fixed Gradient Ascent'
             ]),
             # Controls how each 1D coordinate sweep chooses its target. The
             # recommended default avoids assuming that the profile is Gaussian.
@@ -775,12 +900,25 @@ class PeakSearcher(Measurement):
             '(stepped SfP only) Search step size': MeasParamFloat(value=0.5, unit='um'),
             '(stepped SfP only) Search fiber stabilization time': MeasParamInt(value=200, unit='ms'),
             '(swept SfP only) Search time': MeasParamFloat(value=2.0, unit='s'),
-            '(swept SfP only) Number of points': MeasParamInt(value=500)
+            '(swept SfP only) Number of points': MeasParamInt(value=500),
+
+            #LINS: Added for Gradient Ascent
+            '(Ascent) Search radius': MeasParamFloat(value=2.0, unit='um'),
+            '(Ascent) Initial points per axis': MeasParamInt(value=9),
+            '(Ascent) Initial step': MeasParamFloat(value=0.5, unit='um'),
+            '(Ascent) Minimum step': MeasParamFloat(value=0.05, unit='um'),
+            '(Ascent) Max iterations': MeasParamInt(value=30),
+            '(Ascent) Max samples': MeasParamInt(value=80),
+            '(Ascent) Measurements per point': MeasParamInt(value=1)
         }
 
     @staticmethod
     def get_wanted_instrument():
         return ['Laser', 'Power Meter']
+
+    # -------------------------------------------------------------------------
+    # Search Algorithm
+    # -------------------------------------------------------------------------
 
     def search_for_peak(self):
         """Main Search For Peak routine
@@ -934,6 +1072,22 @@ class PeakSearcher(Measurement):
                     results['fitting information']['Bayesian 4D'] = bayes_info
                     self._add_bayesian_projection_plots(bayes_info, label_prefix='Bayesian 4D')
 
+
+                #LINS: add ELIF for Gradient Ascent
+                elif str(peak_optimizer).lower() == 'fixed gradient ascent':
+                    current_coordinates, estimated_through_power, ascent_info = self._run_fixed_ascent(
+                        start_coordinates=start_coordinates,
+                        radius_um=float(self._param_value('(Ascent) Search radius', 2.0)),
+                        pause_time_ms=pause_time_ms,
+                        n_averages=int(self._param_value('(Ascent) Measurements per point', 1)),
+                        n_initial=int(self._param_value('(Ascent) Initial points per axis', 9)),
+                        max_iterations=int(self._param_value('(Ascent) Max iterations', 30)),
+                        initial_delta=float(self._param_value('(Ascent) Initial step', 0.5)),
+                        delta_tolerance=float(self._param_value('(Ascent) Minimum step', 0.05)),
+                        max_samples=int(self._param_value('(Ascent) Max samples', 80)),
+                    )
+                    results['fitting information']['Fixed gradient ascent'] = ascent_info
+                
                 else:
                         # do sweep for every dimension
                     # color cycle strings for matplotlib
@@ -1185,6 +1339,10 @@ class PeakSearcher(Measurement):
         It returns the same result dictionary as search_for_peak().
         """
         return self._search_for_peak_with_forced_optimizer('Bayesian 4D')
+
+    #LINS: added in search_for_peak_fixed_ascent()
+    def search_for_peak_fixed_ascent(self):
+        return self._search_for_peak_with_forced_optimizer('Fixed gradient ascent')
 
     def search_for_peak_bayesian_refiner(self):
         """Experimental BO refinement after the normal coordinate search.
