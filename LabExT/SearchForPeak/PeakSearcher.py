@@ -1443,7 +1443,7 @@ class PeakSearcher(Measurement):
         results['optimized through power'] = estimated_through_power
 
         #LINS:reporting of data
-        report_path = get_configuration_file_path("peak_search_results.txt")
+        report_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"Dev_Linus","peak_search_results.txt")
         with open(report_path, "a", encoding="utf-8") as report_file:
             timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
             report_file.write(f"\n{'=' * 72}\nSearch for Peak — {timestamp}\n")
