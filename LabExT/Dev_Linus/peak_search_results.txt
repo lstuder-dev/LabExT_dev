@@ -1,0 +1,300 @@
+
+========================================================================
+Search for Peak — 2026-10-14 14:47:48 W. Europe Daylight Time
+Algorithm: Fixed Gradient Ascent
+Time taken: 175.015 s
+Starting coordinates: [-586.889444, -10697.01931, 2742.927844, 10369.764771999999] um
+Ending coordinates: [-584.231549263158, -10696.841678421053, 2743.9804755789473, 10367.712140421052] um
+Starting power: -15.435 dBm
+Ending power: -13.933 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 14:52:27 W. Europe Daylight Time
+Algorithm: Fixed Gradient Ascent
+Time taken: 179.601 s
+Starting coordinates: [-586.844803, -10700.799267, 2740.106299, 10361.752206] um
+Ending coordinates: [-584.4369082631579, -10698.141372263159, 2744.264193736842, 10367.827863894736] um
+Starting power: -21.033 dBm
+Ending power: -13.968 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 14:56:37 W. Europe Daylight Time
+Algorithm: Fixed Gradient Ascent
+Time taken: 175.062 s
+Starting coordinates: [-585.5328939999999, -10693.809523, 2738.633121, 10371.542371] um
+Ending coordinates: [-584.3552624210525, -10696.467417736842, 2744.1462788947365, 10367.884476263158] um
+Starting power: -20.120 dBm
+Ending power: -13.984 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 14:59:48 W. Europe Daylight Time
+Algorithm: Fixed Gradient Ascent
+Time taken: 170.358 s
+Starting coordinates: [-582.68048, -10699.834069999999, 2740.251217, 10371.523599] um
+Ending coordinates: [-584.4831115789474, -10696.926175263157, 2744.409111736842, 10367.990704263158] um
+Starting power: -18.158 dBm
+Ending power: -13.951 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:03:22 W. Europe Daylight Time
+Algorithm: Fixed Gradient Ascent
+Time taken: 142.096 s
+Starting coordinates: [-589.646044, -10682.626983999999, 2737.002664, 10371.513673] um
+Ending coordinates: [-584.3828861052631, -10696.311194526314, 2744.3710850526318, 10368.480778263158] um
+Starting power: -43.760 dBm
+Ending power: -14.037 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:08:30 W. Europe Daylight Time
+Algorithm: Fixed Gradient Ascent
+Time taken: 156.072 s
+Starting coordinates: [-584.383348, -10696.310689, 2744.369655, 10368.479699] um
+Ending coordinates: [-584.383348, -10697.310689, 2744.307155, 10367.979699] um
+Starting power: -14.024 dBm
+Ending power: -13.945 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:11:30 W. Europe Daylight Time
+Algorithm: Fixed Gradient Ascent
+Time taken: 165.644 s
+Starting coordinates: [-582.442626, -10698.486541, 2742.010422, 10371.681228] um
+Ending coordinates: [-583.4952575789474, -10695.328646263159, 2744.543316736842, 10368.148333263158] um
+Starting power: -16.320 dBm
+Ending power: -14.167 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:15:16 W. Europe Daylight Time
+Algorithm: Fixed Gradient Ascent
+Time taken: 175.075 s
+Starting coordinates: [-580.06967, -10698.983871999999, 2748.73238, 10364.613565] um
+Ending coordinates: [-584.227564736842, -10697.618740421052, 2744.7192221052633, 10367.521459736841] um
+Starting power: -21.060 dBm
+Ending power: -13.988 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:18:31 W. Europe Daylight Time
+Algorithm: Fixed Gradient Ascent
+Time taken: 160.669 s
+Starting coordinates: [-584.227186, -10700.820228999999, 2747.792412, 10364.00654] um
+Ending coordinates: [-584.0495544210526, -10697.662334263157, 2744.3845172631577, 10367.664434736842] um
+Starting power: -17.509 dBm
+Ending power: -13.996 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:21:59 W. Europe Daylight Time
+Algorithm: Fixed Gradient Ascent
+Time taken: 174.599 s
+Starting coordinates: [-586.510758, -10695.564322999999, 2746.9904109999998, 10365.870729] um
+Ending coordinates: [-583.8528632631579, -10697.179454578945, 2744.3325162631577, 10367.923360578947] um
+Starting power: -16.369 dBm
+Ending power: -13.969 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:23:59 W. Europe Daylight Time
+Algorithm: Golden Section
+Time taken: 83.065 s
+Starting coordinates: [-586.452892, -10692.864548, 2740.670554, 10371.189932] um
+Ending coordinates: [-583.9132063984522, -10696.213834071692, 2744.5348634282664, 10367.869971425742] um
+Starting power: -18.306 dBm
+Ending power: -13.951 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:26:05 W. Europe Daylight Time
+Algorithm: Golden Section
+Time taken: 83.123 s
+Starting coordinates: [-586.287683, -10691.40404, 2741.470945, 10370.348423] um
+Ending coordinates: [-584.0145711538149, -10696.119798878353, 2744.423831844082, 10368.051586328022] um
+Starting power: -17.826 dBm
+Ending power: -13.953 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:28:14 W. Europe Daylight Time
+Algorithm: Golden Section
+Time taken: 83.265 s
+Starting coordinates: [-587.608166, -10692.527930999999, 2737.856097, 10371.950252999999] um
+Ending coordinates: [-584.0341551528895, -10695.877217071691, 2744.5525298771763, 10368.600966928307] um
+Starting power: -24.446 dBm
+Ending power: -14.010 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:29:59 W. Europe Daylight Time
+Algorithm: Golden Section
+Time taken: 83.210 s
+Starting coordinates: [-586.892898, -10692.796808, 2739.5241809999998, 10371.142477] um
+Ending coordinates: [-584.0642359565236, -10696.146094071692, 2744.570765300227, 10367.745741276722] um
+Starting power: -20.348 dBm
+Ending power: -13.977 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:31:40 W. Europe Daylight Time
+Algorithm: Golden Section
+Time taken: 83.159 s
+Starting coordinates: [-586.4367169999999, -10693.064253999999, 2741.064645, 10370.310336999999] um
+Ending coordinates: [-584.139880328022, -10696.354889076822, 2744.56188069809, 10368.148926471911] um
+Starting power: -17.641 dBm
+Ending power: -13.953 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:33:22 W. Europe Daylight Time
+Algorithm: Golden Section
+Time taken: 83.063 s
+Starting coordinates: [-586.416488, -10693.364399, 2741.737073, 10370.334665] um
+Ending coordinates: [-584.1140506563805, -10696.052034227945, 2744.6313088492134, 10368.238828277648] um
+Starting power: -16.856 dBm
+Ending power: -14.005 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:35:10 W. Europe Daylight Time
+Algorithm: Golden Section
+Time taken: 83.031 s
+Starting coordinates: [-585.066602, -10691.063698, 2739.9849449999997, 10370.366522] um
+Ending coordinates: [-583.9757650257759, -10696.4411077221, 2744.552754251956, 10367.879886721681] um
+Starting power: -19.393 dBm
+Ending power: -13.953 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:36:47 W. Europe Daylight Time
+Algorithm: Golden Section
+Time taken: 83.067 s
+Starting coordinates: [-585.2934769999999, -10692.173021999999, 2740.947733, 10371.987248] um
+Ending coordinates: [-584.1021400509632, -10696.31510652691, 2744.492418349676, 10368.18851237747] um
+Starting power: -18.198 dBm
+Ending power: -13.977 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:38:29 W. Europe Daylight Time
+Algorithm: Golden Section
+Time taken: 82.949 s
+Starting coordinates: [-585.527743, -10692.371075, 2743.371253, 10369.61369] um
+Ending coordinates: [-584.0349061265247, -10697.086833878353, 2744.284814850391, 10367.642078078254] um
+Starting power: -15.660 dBm
+Ending power: -13.959 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:40:10 W. Europe Daylight Time
+Algorithm: Golden Section
+Time taken: 83.288 s
+Starting coordinates: [-585.734171, -10695.220201, 2741.349686, 10371.186952] um
+Ending coordinates: [-583.9691596995204, -10696.340363471658, 2744.5928714252377, 10367.837665928308] um
+Starting power: -16.658 dBm
+Ending power: -13.951 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:43:55 W. Europe Daylight Time
+Algorithm: coordinate search
+Time taken: 101.720 s
+Starting coordinates: [-584.30241, -10697.936021, 2744.466887, 10366.374543] um
+Ending coordinates: [-584.30241, -10696.936021, 2744.466887, 10367.374543] um
+Starting power: -14.071 dBm
+Ending power: -13.950 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:45:53 W. Europe Daylight Time
+Algorithm: coordinate search
+Time taken: 101.894 s
+Starting coordinates: [-588.7936199999999, -10693.417137, 2739.519753, 10372.212507999999] um
+Ending coordinates: [-583.7936199999999, -10696.417137, 2744.519753, 10367.212507999999] um
+Starting power: -22.749 dBm
+Ending power: -13.989 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:47:53 W. Europe Daylight Time
+Algorithm: coordinate search
+Time taken: 101.769 s
+Starting coordinates: [-581.159419, -10700.10541, 2747.867906, 10363.661699999999] um
+Ending coordinates: [-584.159419, -10698.10541, 2744.867906, 10366.661699999999] um
+Starting power: -18.559 dBm
+Ending power: -14.045 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:49:55 W. Europe Daylight Time
+Algorithm: coordinate search
+Time taken: 101.791 s
+Starting coordinates: [-581.6719519999999, -10694.359609, 2746.9596269999997, 10368.069851999999] um
+Ending coordinates: [-583.6719519999999, -10696.359609, 2744.9596269999997, 10368.069851999999] um
+Starting power: -16.418 dBm
+Ending power: -14.007 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:51:52 W. Europe Daylight Time
+Algorithm: coordinate search
+Time taken: 101.794 s
+Starting coordinates: [-581.036611, -10700.172317999999, 2748.573564, 10364.03192] um
+Ending coordinates: [-584.036611, -10697.172317999999, 2744.573564, 10368.03192] um
+Starting power: -19.371 dBm
+Ending power: -13.961 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:53:49 W. Europe Daylight Time
+Algorithm: coordinate search
+Time taken: 101.804 s
+Starting coordinates: [-581.52733, -10700.691971999999, 2748.616947, 10363.973173] um
+Ending coordinates: [-583.52733, -10697.691971999999, 2744.616947, 10366.973173] um
+Starting power: -19.133 dBm
+Ending power: -14.010 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:55:50 W. Europe Daylight Time
+Algorithm: coordinate search
+Time taken: 101.795 s
+Starting coordinates: [-580.8990779999999, -10701.199268, 2748.6363029999998, 10362.862435] um
+Ending coordinates: [-583.8990779999999, -10697.199268, 2744.6363029999998, 10366.862435] um
+Starting power: -21.071 dBm
+Ending power: -13.973 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:57:45 W. Europe Daylight Time
+Algorithm: coordinate search
+Time taken: 101.872 s
+Starting coordinates: [-585.5104699999999, -10693.783834, 2741.397735, 10369.517711999999] um
+Ending coordinates: [-583.5104699999999, -10696.783834, 2744.397735, 10367.517711999999] um
+Starting power: -16.419 dBm
+Ending power: -13.976 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 15:59:53 W. Europe Daylight Time
+Algorithm: coordinate search
+Time taken: 101.837 s
+Starting coordinates: [-586.556915, -10694.893297999999, 2741.560987, 10370.864711] um
+Ending coordinates: [-583.556915, -10696.893297999999, 2744.560987, 10367.864711] um
+Starting power: -17.063 dBm
+Ending power: -13.970 dBm
+
+
+========================================================================
+Search for Peak — 2026-10-14 16:02:00 W. Europe Daylight Time
+Algorithm: coordinate search
+Time taken: 101.738 s
+Starting coordinates: [-586.806414, -10693.386188, 2749.1365, 10364.067146] um
+Ending coordinates: [-583.806414, -10697.386188, 2745.1365, 10367.067146] um
+Starting power: -20.671 dBm
+Ending power: -14.022 dBm
+
