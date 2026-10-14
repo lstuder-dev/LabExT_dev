@@ -19,6 +19,10 @@ from scipy.special import erf
 #TODO: omuell added for testing
 import matplotlib.pyplot as plt
 
+#LINS: Added for reporting
+from datetime import datetime
+from pprint import pformat
+
 try:
     # Sobol points give a better space-filling initial design/candidate cloud than pure random points.
     # The code below falls back to random sampling if this import is unavailable in the LabExT env.
@@ -109,11 +113,80 @@ def fixed_gradient_ascent(measure_fn, start_coordinates, radius, number_of_initi
         "n_iterations": iter,
         "sampled coordinates": X_abs,
         "sampled powers dBm": power_measurememts,
+        "max value": candidate_power,
+        "max coord": candidate_coord
     }
 
     return [float(v) for v in candidate_coord], float(candidate_power), info
 
+def golden_section(measure_fn, start_coordinates, radius, 
+                          tolerance, max_samples):
 
+    start_coordinates = [float(v) for v in start_coordinates]
+    rx, ry = (radius,radius) if np.ndim(radius) == 0 else radius
+    x_bounds = (start_coordinates[0]-rx, start_coordinates[0]+rx)
+    y_bounds = (start_coordinates[1]-ry, start_coordinates[1]+ry)
+    positions, powers = [],[]
+
+    
+    def measure(x,y):
+        value = measure_fn([x,y])
+        positions.append([float(x),float(y)])
+        powers.append(value)
+        return value if np.isfinite(value) else -np.inf
+
+    def best_so_far():
+        vals = np.where(np.isfinite(powers), powers, -np.inf)
+        k = int(np.argmax(vals))
+        return list(positions[k]), float(vals[k])
+
+    def line_search(lo, hi, probe, budget):
+        inv_phi = (np.sqrt(5) - 1) / 2  # ~0.618034
+        
+        q1 = hi - inv_phi * (hi - lo)
+        q2 = lo + inv_phi * (hi - lo)
+        fq1, fq2  = probe(q1), probe(q2)
+
+        used = 2
+
+        while hi-lo >= tolerance and used < budget:
+            if fq1 > fq2:
+                hi, q2, fq2 = q2, q1, fq1
+                q1 = hi - inv_phi * (hi - lo)
+                fq1 = probe(q1)
+            else:
+                lo, q1, fq1 = q1, q2, fq2
+                q2 = lo + inv_phi * (hi - lo)
+                fq2 = probe(q2)
+            used += 1
+
+        return (lo+hi)/2
+
+    measure(*start_coordinates)
+
+    max_samples_single_dim = max_samples//2
+
+    max_y = line_search(y_bounds[0],y_bounds[1],lambda v: measure(start_coordinates[0], v), max_samples_single_dim)
+    max_x = line_search(x_bounds[0],x_bounds[1],lambda v: measure(v, max_y), max_samples_single_dim)
+
+    measure(max_x, max_y)
+
+    candidate_coord, candidate_power = best_so_far()
+
+    
+    info = {
+        "method": 'Golden Search',
+        "start coordinates": start_coordinates,
+        "bounds": [list(x_bounds),list(y_bounds)],
+        "n_samples": len(powers),
+        "n_iterations": max_samples,
+        "sampled coordinates": positions,
+        "sampled powers dBm": powers,
+        "max value": candidate_power,
+        "max coord": candidate_coord
+    }
+
+    return [float(v) for v in candidate_coord], float(candidate_power), info
 
 class PeakSearcher(Measurement):
     """
@@ -700,10 +773,9 @@ class PeakSearcher(Measurement):
         }
         return best_coordinates, best_power, info
 
-    #LINS: added function that runs fixed ascent, splits stages, etc.
-    def _run_fixed_ascent(self, start_coordinates, radius_um, pause_time_ms=200, n_averages=1,
-                      number_of_initial_points=9, max_iterations=30, initial_delta=0.5,
-                      delta_tolerance=0.05, max_samples=80):
+    #LINS: added function that runs fixed ascent and goldensection, splits stages, etc.
+    def _run_stagewise(self, algo, algo_kwargs, start_coordinates, radius_um,
+                    pause_time_ms=200, n_averages=1, label="stagewise"):
         start = list(map(float, start_coordinates))
         current = start.copy()
         dims_per_stage = [(0, 1)] if len(start) == 2 else [(0, 1), (2, 3)]
@@ -716,28 +788,24 @@ class PeakSearcher(Measurement):
         per_stage = []
         try:
             for dims in dims_per_stage:
-                sub_measure = make_sub_measure(measure_all, current, dims)  # sees the updated current
-                coords, _, info = fixed_gradient_ascent(
-                    sub_measure, [current[d] for d in dims], radius_um,
-                    n_initial=number_of_initial_points, max_iterations=max_iterations,
-                    initial_delta=initial_delta, delta_tolerance=delta_tolerance,
-                    max_samples=max_samples)
+                sub_measure = make_sub_measure(measure_all, current, dims)
+                coords, _, stage_info = algo(sub_measure, [current[d] for d in dims], radius_um, **algo_kwargs)
                 for d, v in zip(dims, coords):
                     current[d] = v
-                n_samples += info["n_samples"]
-                per_stage.append({"dims": list(dims), **info})
+                n_samples += stage_info["n_samples"]
+                per_stage.append({"dims": list(dims), **stage_info})
 
-            final_power = measure_all(current)  # moves there and measures
+            final_power = measure_all(current)
             n_samples += 1
             if not np.isfinite(final_power) or final_power < start_power:
                 current, final_power = start.copy(), start_power
                 self._move_stages_absolute(current)
         except Exception:
-            self.logger.exception("Fixed gradient ascent failed; moving back to start.")
+            self.logger.exception("%s failed; moving back to start.", label)
             self._move_stages_absolute(start)
             raise
 
-        info = {"method": "Fixed gradient ascent", "start power dBm": float(start_power),
+        info = {"method": label, "start power dBm": float(start_power),
                 "n_samples": n_samples, "per stage": per_stage}
         return current, float(final_power), info
 
@@ -875,7 +943,9 @@ class PeakSearcher(Measurement):
                 'coordinate search + Bayesian refiner',
                 'Bayesian 4D',
                 #LINS: added Gradient Ascent
-                'Fixed Gradient Ascent'
+                'Fixed Gradient Ascent',
+                 #LINS: added Golden Section
+                'Golden Section'
             ]),
             # Controls how each 1D coordinate sweep chooses its target. The
             # recommended default avoids assuming that the profile is Gaussian.
@@ -909,7 +979,13 @@ class PeakSearcher(Measurement):
             '(Ascent) Minimum step': MeasParamFloat(value=0.05, unit='um'),
             '(Ascent) Max iterations': MeasParamInt(value=30),
             '(Ascent) Max samples': MeasParamInt(value=80),
-            '(Ascent) Measurements per point': MeasParamInt(value=1)
+            '(Ascent) Measurements per point': MeasParamInt(value=1),
+
+            #LINS: Added for Golden Section
+            '(Golden) Search radius': MeasParamFloat(value=2.0, unit='um'),
+            '(Golden) Tolerance': MeasParamFloat(value=0.05, unit='um'),
+            '(Golden) Max samples': MeasParamInt(value=40),
+            '(Golden) Measurements per point': MeasParamInt(value=1)
         }
 
     @staticmethod
@@ -1051,6 +1127,12 @@ class PeakSearcher(Measurement):
                 results['start location'] = start_coordinates.copy()
                 results['start through power'] = self.instr_powermeter.power
 
+                #LINS:added Timer
+                optimizer_started_at = datetime.now().astimezone()
+                optimizer_start = time.perf_counter()
+
+
+
                 if str(peak_optimizer).lower() == 'bayesian 4d':
                     # True joint optimisation: all stage coordinates are varied
                     # together, so this does not assume separability between x/y
@@ -1075,21 +1157,36 @@ class PeakSearcher(Measurement):
 
                 #LINS: add ELIF for Gradient Ascent
                 elif str(peak_optimizer).lower() == 'fixed gradient ascent':
-                    current_coordinates, estimated_through_power, ascent_info = self._run_fixed_ascent(
+                    current_coordinates, estimated_through_power, ascent_info = self._run_stagewise(
+                        fixed_gradient_ascent,
+                        {"number_of_initial_points": int(self._param_value('(Ascent) Initial points per axis', 9)),
+                        "max_iterations": int(self._param_value('(Ascent) Max iterations', 30)),
+                        "initial_delta": float(self._param_value('(Ascent) Initial step', 0.5)),
+                        "delta_tolerance": float(self._param_value('(Ascent) Minimum step', 0.05)),
+                        "max_samples": int(self._param_value('(Ascent) Max samples', 80))},
                         start_coordinates=start_coordinates,
                         radius_um=float(self._param_value('(Ascent) Search radius', 2.0)),
                         pause_time_ms=pause_time_ms,
                         n_averages=int(self._param_value('(Ascent) Measurements per point', 1)),
-                        n_initial=int(self._param_value('(Ascent) Initial points per axis', 9)),
-                        max_iterations=int(self._param_value('(Ascent) Max iterations', 30)),
-                        initial_delta=float(self._param_value('(Ascent) Initial step', 0.5)),
-                        delta_tolerance=float(self._param_value('(Ascent) Minimum step', 0.05)),
-                        max_samples=int(self._param_value('(Ascent) Max samples', 80)),
                     )
                     results['fitting information']['Fixed gradient ascent'] = ascent_info
-                
+
+
+                #LINS: add ELIF for golden section
+                elif str(peak_optimizer).lower() == 'golden section':
+                    current_coordinates, estimated_through_power, golden_info = self._run_stagewise(
+                        golden_section,
+                        {"tolerance": float(self._param_value('(Golden) Tolerance', 0.05)),
+                            "max_samples": int(self._param_value('(Golden) Max samples', 40))},
+                        start_coordinates=start_coordinates,
+                        radius_um=float(self._param_value('(Golden) Search radius', 2.0)),
+                        pause_time_ms=pause_time_ms,
+                        n_averages=int(self._param_value('(Golden) Measurements per point', 1)),
+                        label='Golden section')
+                    results['fitting information']['Golden section'] = golden_info
+                                
                 else:
-                        # do sweep for every dimension
+                    # do sweep for every dimension
                     # color cycle strings for matplotlib
                     color_strings = ['C' + str(i) for i in range(10)]
                     for dimidx, p_start in enumerate(start_coordinates):
@@ -1266,11 +1363,30 @@ class PeakSearcher(Measurement):
                             f"Moving to location: {optimized_target:.3f}um with estimated through power"
                             f" of {estimated_through_power:.1f}dBm.")
 
+                        #LINS: Adding reporting on maximum and location
+                        finite_indices = np.flatnonzero(np.isfinite(IL_meas))
+                        if finite_indices.size:
+                            measured_max_idx = int(
+                                finite_indices[np.argmax(IL_meas[finite_indices])]
+                            )
+                            measured_max_power = float(IL_meas[measured_max_idx])
+                            measured_max_offset = float(d_range[measured_max_idx])
+                            measured_max_coordinate = float(p_start + measured_max_offset)
+                        else:
+                            measured_max_power = None
+                            measured_max_offset = None
+                            measured_max_coordinate = None
+
                         results['fitting information'][dimension_name] = {
                             'optimized parameters': list(popt) if popt is not None else None,
                             'parameter estimation error std dev': list(perr_std_dev) if perr_std_dev is not None else None,
                             'fitter message': str(fit_msg),
-                            'sfp decision': str(sfp_msg)}
+                            'sfp decision': str(sfp_msg),
+                            'measured max power dBm': measured_max_power,
+                            'measured max offset um': measured_max_offset,
+                            'measured max coordinate um': measured_max_coordinate,
+                            'estimated target coordinate um': float(p_start + optimized_target),
+                            'estimated target power dBm': float(estimated_through_power)}
 
                         # reset speed and acceleration to original
                         self.mover.speed_xy = v0
@@ -1302,6 +1418,15 @@ class PeakSearcher(Measurement):
                     results['fitting information']['Bayesian refiner'] = bayes_info
                     self._add_bayesian_projection_plots(bayes_info, label_prefix='Bayesian refiner')
 
+        #LINS: time stopping
+        optimizer_ended_at = datetime.now().astimezone()
+        results["optimizer"] = peak_optimizer
+        results["optimizer started"] = optimizer_started_at.isoformat(timespec="seconds")
+        results["optimizer ended"] = optimizer_ended_at.isoformat(timespec="seconds")
+        results["optimizer time seconds"] = time.perf_counter() - optimizer_start
+
+
+
         # close instruments
         self.instr_laser.close()
         self.instr_powermeter.close()
@@ -1316,6 +1441,15 @@ class PeakSearcher(Measurement):
         # save end result and return
         results['optimized location'] = current_coordinates.copy()
         results['optimized through power'] = estimated_through_power
+
+        #LINS:reporting of data
+        report_path = get_configuration_file_path("peak_search_results.txt")
+        with open(report_path, "a", encoding="utf-8") as report_file:
+            timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+            report_file.write(f"\n{'=' * 72}\nSearch for Peak — {timestamp}\n")
+            report_file.write(pformat(results, sort_dicts=False))
+            report_file.write("\n")
+
 
         return results
 
@@ -1342,7 +1476,11 @@ class PeakSearcher(Measurement):
 
     #LINS: added in search_for_peak_fixed_ascent()
     def search_for_peak_fixed_ascent(self):
-        return self._search_for_peak_with_forced_optimizer('Fixed gradient ascent')
+        return self._search_for_peak_with_forced_optimizer('Fixed Gradient Ascent')
+
+    #LINS: added in search_for_peak_golden_search()
+    def search_for_peak_golden_section(self):
+            return self._search_for_peak_with_forced_optimizer('Golden Section')
 
     def search_for_peak_bayesian_refiner(self):
         """Experimental BO refinement after the normal coordinate search.

@@ -81,9 +81,8 @@ def make_sub_measure(measure_all, base, dims):
     return sub_measure
 
 
-def _run_fixed_ascent(self, start_coordinates, radius_um, pause_time_ms=200, n_averages=1,
-                      n_initial=9, max_iterations=30, initial_delta=0.5,
-                      delta_tolerance=0.05, max_samples=80):
+def _run_stagewise(self, algo, algo_kwargs, start_coordinates, radius_um,
+                   pause_time_ms=200, n_averages=1, label="stagewise"):
     start = list(map(float, start_coordinates))
     current = start.copy()
     dims_per_stage = [(0, 1)] if len(start) == 2 else [(0, 1), (2, 3)]
@@ -96,27 +95,23 @@ def _run_fixed_ascent(self, start_coordinates, radius_um, pause_time_ms=200, n_a
     per_stage = []
     try:
         for dims in dims_per_stage:
-            sub_measure = make_sub_measure(measure_all, current, dims)  # sees the updated current
-            coords, _, info = fixed_gradient_ascent(
-                sub_measure, [current[d] for d in dims], radius_um,
-                n_initial=n_initial, max_iterations=max_iterations,
-                initial_delta=initial_delta, delta_tolerance=delta_tolerance,
-                max_samples=max_samples)
+            sub_measure = make_sub_measure(measure_all, current, dims)
+            coords, _, info = algo(sub_measure, [current[d] for d in dims], radius_um, **algo_kwargs)
             for d, v in zip(dims, coords):
                 current[d] = v
             n_samples += info["n_samples"]
             per_stage.append({"dims": list(dims), **info})
 
-        final_power = measure_all(current)  # moves there and measures
+        final_power = measure_all(current)
         n_samples += 1
         if not np.isfinite(final_power) or final_power < start_power:
             current, final_power = start.copy(), start_power
             self._move_stages_absolute(current)
     except Exception:
-        self.logger.exception("Fixed gradient ascent failed; moving back to start.")
+        self.logger.exception("%s failed; moving back to start.", label)
         self._move_stages_absolute(start)
         raise
 
-    info = {"method": "Fixed gradient ascent", "start power dBm": float(start_power),
+    info = {"method": label, "start power dBm": float(start_power),
             "n_samples": n_samples, "per stage": per_stage}
     return current, float(final_power), info

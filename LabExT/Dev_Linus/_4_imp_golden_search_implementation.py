@@ -64,4 +64,5 @@ def golden_section(measure_fn, start_coordinates, radius,
     }
 
     return [float(v) for v in candidate_coord], float(candidate_power), info
-    
+
+
