@@ -1447,7 +1447,12 @@ class PeakSearcher(Measurement):
         with open(report_path, "a", encoding="utf-8") as report_file:
             timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
             report_file.write(f"\n{'=' * 72}\nSearch for Peak — {timestamp}\n")
-            report_file.write(pformat(results, sort_dicts=False))
+            report_file.write(f"Algorithm: {results['optimizer']}\n")
+            report_file.write(f"Time taken: {results['optimizer time seconds']:.3f} s\n")
+            report_file.write(f"Starting coordinates: {results['start location']} um\n")
+            report_file.write(f"Ending coordinates: {results['optimized location']} um\n")
+            report_file.write(f"Starting power: {results['start through power']:.3f} dBm\n")
+            report_file.write(f"Ending power: {results['optimized through power']:.3f} dBm\n")
             report_file.write("\n")
 
 
