@@ -131,7 +131,6 @@ def golden_section(measure_fn, start_coordinates, radius,
     x_bounds = (start_coordinates[0]-rx, start_coordinates[0]+rx)
     y_bounds = (start_coordinates[1]-ry, start_coordinates[1]+ry)
     positions, powers = [],[]
-
     
     def measure(x,y):
         value = measure_fn([x,y])
@@ -155,7 +154,6 @@ def golden_section(measure_fn, start_coordinates, radius,
             height = max(finite)-min(finite)
             return val - height * np.exp(-0.5 * ((q-avoid)/2)**2)
 
-        
         q1 = hi - inv_phi * (hi - lo)
         q2 = lo + inv_phi * (hi - lo)
         fq1, fq2  = score(q1), score(q2)
