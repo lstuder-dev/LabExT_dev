@@ -9,6 +9,8 @@ import json
 import logging
 import os
 import time
+#LINS: import of csv
+import csv
 from typing import Type
 
 import numpy as np
@@ -119,8 +121,10 @@ def fixed_gradient_ascent(measure_fn, start_coordinates, radius, number_of_initi
 
     return [float(v) for v in candidate_coord], float(candidate_power), info
 
+
+#LINS: golden section with deflation
 def golden_section(measure_fn, start_coordinates, radius, 
-                          tolerance, max_samples):
+                          tolerance, max_samples, deflation = False):
 
     start_coordinates = [float(v) for v in start_coordinates]
     rx, ry = (radius,radius) if np.ndim(radius) == 0 else radius
@@ -140,12 +144,21 @@ def golden_section(measure_fn, start_coordinates, radius,
         k = int(np.argmax(vals))
         return list(positions[k]), float(vals[k])
 
-    def line_search(lo, hi, probe, budget):
+    def line_search(lo, hi, probe, budget, avoid):
         inv_phi = (np.sqrt(5) - 1) / 2  # ~0.618034
+
+        def score(q):
+            val = probe(q)
+            if avoid is None:
+                return val
+            finite = [p for p in powers if np.isfinite(p)]
+            height = max(finite)-min(finite)
+            return val - height * np.exp(-0.5 * ((q-avoid)/2)**2)
+
         
         q1 = hi - inv_phi * (hi - lo)
         q2 = lo + inv_phi * (hi - lo)
-        fq1, fq2  = probe(q1), probe(q2)
+        fq1, fq2  = score(q1), score(q2)
 
         used = 2
 
@@ -153,11 +166,11 @@ def golden_section(measure_fn, start_coordinates, radius,
             if fq1 > fq2:
                 hi, q2, fq2 = q2, q1, fq1
                 q1 = hi - inv_phi * (hi - lo)
-                fq1 = probe(q1)
+                fq1 = score(q1)
             else:
                 lo, q1, fq1 = q1, q2, fq2
                 q2 = lo + inv_phi * (hi - lo)
-                fq2 = probe(q2)
+                fq2 = score(q2)
             used += 1
 
         return (lo+hi)/2
@@ -166,14 +179,21 @@ def golden_section(measure_fn, start_coordinates, radius,
 
     max_samples_single_dim = max_samples//2
 
-    max_y = line_search(y_bounds[0],y_bounds[1],lambda v: measure(start_coordinates[0], v), max_samples_single_dim)
-    max_x = line_search(x_bounds[0],x_bounds[1],lambda v: measure(v, max_y), max_samples_single_dim)
+    if deflation:
+        max_samples_single_dim = max_samples//3
+        max_y = line_search(y_bounds[0],y_bounds[1],lambda v: measure(start_coordinates[0], v), max_samples_single_dim, None)
+        first_max_x = line_search(x_bounds[0],x_bounds[1],lambda v: measure(v, max_y), max_samples_single_dim, None)
+        measure(first_max_x, max_y)
+        second_max_x = line_search(x_bounds[0],x_bounds[1],lambda v: measure(v, max_y), max_samples_single_dim, first_max_x)
+        measure(second_max_x, max_y)
 
-    measure(max_x, max_y)
+    else:
+        max_y = line_search(y_bounds[0],y_bounds[1],lambda v: measure(start_coordinates[0], v), max_samples_single_dim, None)
+        max_x = line_search(x_bounds[0],x_bounds[1],lambda v: measure(v, max_y), max_samples_single_dim, None)
+        measure(max_x, max_y)
 
     candidate_coord, candidate_power = best_so_far()
 
-    
     info = {
         "method": 'Golden Search',
         "start coordinates": start_coordinates,
@@ -985,7 +1005,8 @@ class PeakSearcher(Measurement):
             '(Golden) Search radius': MeasParamFloat(value=2.0, unit='um'),
             '(Golden) Tolerance': MeasParamFloat(value=0.05, unit='um'),
             '(Golden) Max samples': MeasParamInt(value=40),
-            '(Golden) Measurements per point': MeasParamInt(value=1)
+            '(Golden) Measurements per point': MeasParamInt(value=1),
+            '(Golden) Deflation': MeasParamList(options=['off', 'on'])
         }
 
     @staticmethod
@@ -1168,6 +1189,7 @@ class PeakSearcher(Measurement):
                         radius_um=float(self._param_value('(Ascent) Search radius', 2.0)),
                         pause_time_ms=pause_time_ms,
                         n_averages=int(self._param_value('(Ascent) Measurements per point', 1)),
+                        label='Fixed gradient ascent'
                     )
                     results['fitting information']['Fixed gradient ascent'] = ascent_info
 
@@ -1177,12 +1199,14 @@ class PeakSearcher(Measurement):
                     current_coordinates, estimated_through_power, golden_info = self._run_stagewise(
                         golden_section,
                         {"tolerance": float(self._param_value('(Golden) Tolerance', 0.05)),
-                            "max_samples": int(self._param_value('(Golden) Max samples', 40))},
+                            "max_samples": int(self._param_value('(Golden) Max samples', 40)),
+                            "deflation": str(self._param_value('(Golden) Deflation', 'off')).lower() == 'on'},
                         start_coordinates=start_coordinates,
                         radius_um=float(self._param_value('(Golden) Search radius', 2.0)),
                         pause_time_ms=pause_time_ms,
                         n_averages=int(self._param_value('(Golden) Measurements per point', 1)),
-                        label='Golden section')
+                        label='Golden section'
+                    )
                     results['fitting information']['Golden section'] = golden_info
                                 
                 else:
@@ -1443,17 +1467,65 @@ class PeakSearcher(Measurement):
         results['optimized through power'] = estimated_through_power
 
         #LINS:reporting of data
-        report_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"Dev_Linus","peak_search_results.txt")
-        with open(report_path, "a", encoding="utf-8") as report_file:
-            timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
-            report_file.write(f"\n{'=' * 72}\nSearch for Peak — {timestamp}\n")
-            report_file.write(f"Algorithm: {results['optimizer']}\n")
-            report_file.write(f"Time taken: {results['optimizer time seconds']:.3f} s\n")
-            report_file.write(f"Starting coordinates: {results['start location']} um\n")
-            report_file.write(f"Ending coordinates: {results['optimized location']} um\n")
-            report_file.write(f"Starting power: {results['start through power']:.3f} dBm\n")
-            report_file.write(f"Ending power: {results['optimized through power']:.3f} dBm\n")
-            report_file.write("\n")
+        #report_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"Dev_Linus","peak_search_results.txt")
+        #with open(report_path, "a", encoding="utf-8") as report_file:
+            #timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+            #report_file.write(f"\n{'=' * 72}\nSearch for Peak — {timestamp}\n")
+            #report_file.write(f"Algorithm: {results['optimizer']}\n")
+            #report_file.write(f"Time taken: {results['optimizer time seconds']:.3f} s\n")
+            #report_file.write(f"Starting coordinates: {results['start location']} um\n")
+            #report_file.write(f"Ending coordinates: {results['optimized location']} um\n")
+            #report_file.write(f"Starting power: {results['start through power']:.3f} dBm\n")
+            #report_file.write(f"Ending power: {results['optimized through power']:.3f} dBm\n")
+            #report_file.write("\n")
+        
+        report_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "Dev_Linus",
+            "peak_search_results.csv"
+        )
+
+        timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+
+        with open(report_path, "a", newline="", encoding="utf-8") as report_file:
+            fieldnames = [
+                "timestamp",
+                "algorithm",
+                "time_taken_s",
+                "starting_coordinates_um",
+                "ending_coordinates_um",
+                "starting_power_dBm",
+                "ending_power_dBm",
+                "power_improvement_dB",
+            ]
+
+            writer = csv.DictWriter(report_file, fieldnames=fieldnames)
+
+            if report_file.tell() == 0:
+                writer.writeheader()
+
+            start = list(results["start location"])
+            end = list(results["optimized location"])
+
+            # Support either a single stage (2 coordinates) or two stages (4).
+            start += [None] * (4 - len(start))
+            end += [None] * (4 - len(end))
+
+            writer.writerow({
+                "timestamp": timestamp,
+                "algorithm": results["optimizer"],
+                "time_taken_s": round(results["optimizer time seconds"], 3),
+                "start_left_x_um": start[0],
+                "start_left_y_um": start[1],
+                "start_right_x_um": start[2],
+                "start_right_y_um": start[3],
+                "end_left_x_um": end[0],
+                "end_left_y_um": end[1],
+                "end_right_x_um": end[2],
+                "end_right_y_um": end[3],
+                "starting_power_dBm": round(results["start through power"], 3),
+                "ending_power_dBm": round(results["optimized through power"], 3),
+            })
 
 
         return results
