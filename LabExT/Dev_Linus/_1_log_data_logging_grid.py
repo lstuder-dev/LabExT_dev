@@ -11,7 +11,7 @@ from LabExT.Instruments.LaserMainframeKeysight import LaserMainframeKeysight
 from LabExT.Instruments.PowerMeterN7744A import PowerMeterN7744A
 
 #variables
-chip_id = 'ID51_flipped'
+chip_id = 'ID1_validation_rough'
 
 #laser variables
 l_unit = 'dBm'
@@ -24,7 +24,7 @@ pm_average_time = 0.1
 pm_autoranging = True
 
 #data gathering variables
-step_size = 0.25 #micrometers
+step_size = 0.1 #micrometers
 number_of_data_points = 41
 
 #define stages and instruments
