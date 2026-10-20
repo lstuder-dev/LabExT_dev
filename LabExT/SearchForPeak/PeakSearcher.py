@@ -19,7 +19,7 @@ from scipy.linalg import cho_factor, cho_solve
 from scipy.special import erf
 
 #TODO: omuell added for testing
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 #LINS: Added for reporting
 from datetime import datetime
@@ -944,8 +944,8 @@ class PeakSearcher(Measurement):
                 self.plots_right.append(opt_pos_plot)
 
             # TODO: omuell added to test
-            plt.plot(meas_plot)
-            plt.show()
+            #plt.plot(meas_plot)
+            #plt.show()
 
     @staticmethod
     def get_default_parameter():
