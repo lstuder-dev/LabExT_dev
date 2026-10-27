@@ -11,12 +11,12 @@ from LabExT.Instruments.LaserMainframeKeysight import LaserMainframeKeysight
 from LabExT.Instruments.PowerMeterN7744A import PowerMeterN7744A
 
 #variables
-chip_id = 'ID52_validation_fine'
+chip_id = 'ID3_validation_fine'
 
 #laser variables
 l_unit = 'dBm'
 l_power = 1.0
-l_wavelength = 1640 #nm
+l_wavelength = 1530 #nm
 
 #powermeter variables
 pm_unit = 'dbm'
