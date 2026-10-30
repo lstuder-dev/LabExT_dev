@@ -87,9 +87,9 @@ def csv_to_arrays(file_name, measured_max):
 
 if __name__ == "__main__":
     #results = csv_to_arrays("261020_ID1_peak_search_results", -13.2964668)
-    #results = csv_to_arrays("261029_ID1_sorted_double_coordinate_peak_search_results", -13.2964668)
+    results = csv_to_arrays("261029_ID1_sorted_double_coordinate_peak_search_results", -13.5234642)
     #results = csv_to_arrays("261027_ID3_peak_search_results", -13.6575813)
-    results = csv_to_arrays("261026_ID52_peak_search_results", -60)
+    #results = csv_to_arrays("261026_ID52_peak_search_results", -60)
 
     
 
