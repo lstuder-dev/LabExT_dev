@@ -1206,6 +1206,124 @@ class PeakSearcher(Measurement):
                         label='Golden section'
                     )
                     results['fitting information']['Golden section'] = golden_info
+
+                #LINS: add ELIF for refined coordinate Search
+                elif str(peak_optimizer).lower() == 'refined coordinate search':
+                    def run_coordinate_search(rf_radius, rf_step_size, rf_start_coordinates):
+                        color_strings = ['C' + str(i) for i in range(10)]
+
+                        pass_coordinates = list(rf_start_coordinates)
+
+                        measured_through_power = float(self.instr_powermeter.power)
+
+                        dimension_results = {}
+
+                        for dimidx, p_start in enumerate(rf_start_coordinates):
+    
+                            dimension_name = self._dimension_names[dimidx]
+    
+                            # create new plotting dataset for measurement
+                            meas_plot = PlotData(ObservableList(), ObservableList(),
+                                                'scatter', color=color_strings[dimidx])
+                            if dimidx < len(rf_start_coordinates) / 2:
+                                self.plots_left.append(meas_plot)
+                            else:
+                                self.plots_right.append(meas_plot)
+                               
+                            # differentiate between the two types of SfP
+                            d_range = np.arange(-rf_radius, rf_radius +
+                                                rf_step_size, rf_step_size)
+
+                            # go through all measurement points for this coordinate and
+                            # record IL
+                            IL_meas = np.empty(len(d_range))
+
+                            for measidx, d_current in enumerate(d_range):
+                                # move stages to currently probed coordinate
+                                pass_coordinates[dimidx] = d_current + p_start
+                                self._move_stages_absolute(pass_coordinates)
+
+                                # take a break to let fiber-vibration die off
+                                time.sleep(pause_time_ms / 1000)
+
+                                # take IL measurement
+                                loss = self.instr_powermeter.power
+
+                                # save data
+                                # do not trigger plot update just yet
+                                meas_plot.x.extend([d_current])
+                                meas_plot.y.append(loss)
+
+                                IL_meas[measidx] = loss
+
+    
+                            self.logger.debug('SFP results:')
+                            self.logger.debug('coordinates:' + str(d_range))
+                            self.logger.debug('IL: ' + str(IL_meas))
+    
+    
+                            finite_indices = np.flatnonzero(np.isfinite(IL_meas))
+                            if finite_indices.size == 0:
+                                optimized_target = 0.0
+                                measured_max_power = None
+                                measured_max_offset = None
+                                measured_max_coordinate = None
+                                sfp_msg = f'SFP failed on dimension {dimension_name} because not all measured IL values are finite.' + \
+                                        ' Change of power meter range required. Moving back to start point.'
+                                self.logger.warning(sfp_msg)
+
+                            else:
+                                measured_max_idx = int(
+                                    finite_indices[np.argmax(IL_meas[finite_indices])]
+                                )
+                                measured_max_power = float(IL_meas[measured_max_idx])
+                                measured_max_offset = float(d_range[measured_max_idx])
+                                measured_max_coordinate = float(p_start + measured_max_offset)
+
+                                optimized_target = measured_max_offset
+                                sfp_msg = f'Moving to optimized fiber location.'
+
+                            if measured_max_power is not None:
+                                measured_through_power = measured_max_power
+                    
+    
+                            dimension_results[dimension_name] = {
+                                'sfp decision': str(sfp_msg),
+                                'measured max power dBm': measured_max_power,
+                                'measured max offset um': measured_max_offset,
+                                'measured max coordinate um': measured_max_coordinate,
+                                }
+    
+                            # reset speed and acceleration to original
+                            self.mover.speed_xy = v0
+                            self.mover.acceleration_xy = acc0
+    
+                            # final move of fiber in this dimensions final decision
+                            pass_coordinates[dimidx] = optimized_target + p_start
+                            self._move_stages_absolute(pass_coordinates)
+
+                        return dimension_results, pass_coordinates, measured_through_power
+
+                    def run_refined_coordinate_search(radius_1, step_size_1, radius_2, step_size_2, rf_start_coordinates):
+                        rough_info, new_start_coordinates, rough_power = run_coordinate_search(radius_1, step_size_1, rf_start_coordinates)
+                        fine_start_coordinates = new_start_coordinates.copy()
+                        fine_info, final_coordinates, fine_power = run_coordinate_search(radius_2, step_size_2, fine_start_coordinates)
+                        
+                        return {"rough_info":rough_info, "fine_info":fine_info, "final_coordinates": final_coordinates.copy(), "fine_power":fine_power}
+
+                    radius_1 =  float(self._param_value('(Refined CS) Radius 1', 10.0))
+                    step_size_1 = float(self._param_value('(Refined CS) Step Size 1', 2))
+                    radius_2 = float(self._param_value('(Refined CS) Radius 2', 3.0))
+                    step_size_2 = float(self._param_value('(Refined CS) Step Size 2', 0.25))
+
+                    refined_info = run_refined_coordinate_search(radius_1, step_size_1, radius_2, step_size_2, start_coordinates)
+
+                    current_coordinates = refined_info['final_coordinates'].copy()
+
+                    estimated_through_power = refined_info['fine_power']
+                    
+                    results['fitting information']['Refined Coordinate Search'] = refined_info
+
                                 
                 else:
                     # do sweep for every dimension
