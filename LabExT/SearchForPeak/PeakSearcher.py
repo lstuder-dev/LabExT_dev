@@ -80,6 +80,14 @@ def fixed_gradient_ascent(measure_fn, start_coordinates, radius, number_of_initi
     x_measured = [measure(x, start_coordinates[1]) for x in x_points]
     x_max = float(x_points[np.argmax(x_measured)])
 
+    # create new plotting dataset for measurement
+    meas_plot = PlotData(ObservableList(), ObservableList(),
+                        'scatter', color=color_strings[dimidx])
+    if dimidx < len(rf_start_coordinates) / 2:
+        self.plots_left.append(meas_plot)
+    else:
+        self.plots_right.append(meas_plot)
+
 
     y_points = np.linspace(y_bounds[0],y_bounds[1],number_of_initial_points)
     for y in y_points:
@@ -95,6 +103,8 @@ def fixed_gradient_ascent(measure_fn, start_coordinates, radius, number_of_initi
         candidates = [(x+delta, y), (x-delta, y), (x, y+delta), (x, y-delta)]
         candidates = [c for c in candidates if x_bounds[0] <= c[0] <= x_bounds[1]
                                   and y_bounds[0] <= c[1] <= y_bounds[1]]
+
+        
 
         values = [measure(cx,cy) for cx,cy in candidates]
 
@@ -963,7 +973,9 @@ class PeakSearcher(Measurement):
                 #LINS: added Gradient Ascent
                 'Fixed Gradient Ascent',
                  #LINS: added Golden Section
-                'Golden Section'
+                'Golden Section',
+                #LINS: added Refined Coordinate Search
+                'Refined Coordinate Search'
             ]),
             # Controls how each 1D coordinate sweep chooses its target. The
             # recommended default avoids assuming that the profile is Gaussian.
@@ -1004,7 +1016,14 @@ class PeakSearcher(Measurement):
             '(Golden) Tolerance': MeasParamFloat(value=0.05, unit='um'),
             '(Golden) Max samples': MeasParamInt(value=40),
             '(Golden) Measurements per point': MeasParamInt(value=1),
-            '(Golden) Deflation': MeasParamList(options=['off', 'on'])
+            '(Golden) Deflation': MeasParamList(options=['off', 'on']),
+
+            #LINS: Added for Refined Coordinate Search
+            '(Refined CS) Radius 1': MeasParamFloat(value=10.0, unit='um'),
+            '(Refined CS) Step Size 1': MeasParamFloat(value=2.0, unit='um'),
+            '(Refined CS) Radius 2': MeasParamFloat(value=3.0, unit='um'),
+            '(Refined CS) Step Size 2': MeasParamFloat(value=0.25, unit='um')
+
         }
 
     @staticmethod
@@ -1321,7 +1340,25 @@ class PeakSearcher(Measurement):
                     current_coordinates = refined_info['final_coordinates'].copy()
 
                     estimated_through_power = refined_info['fine_power']
-                    
+
+                    start_power = float(results['start through power'])
+                    time.sleep(pause_time_ms / 1000)
+                    final_power = float(self.instr_powermeter.power)
+
+                    rollback_applied = not np.isfinite(final_power) or final_power < start_power
+
+                    if rollback_applied:
+                        current_coordinates = start_coordinates.copy()
+                        estimated_through_power = start_power
+                        self._move_stages_absolute(current_coordinates)
+                    else:
+                        estimated_through_power = final_power
+
+                    refined_info['final_coordinates'] = current_coordinates.copy()
+                    refined_info['fine_power'] = float(estimated_through_power)
+                    refined_info['final verification power dBm'] = final_power
+                    refined_info['rollback applied'] = rollback_applied
+
                     results['fitting information']['Refined Coordinate Search'] = refined_info
 
                                 
@@ -1680,6 +1717,10 @@ class PeakSearcher(Measurement):
     #LINS: added in search_for_peak_golden_search()
     def search_for_peak_golden_section(self):
             return self._search_for_peak_with_forced_optimizer('Golden Section')
+
+    #LINS: added in search_for_peak_refined_coordinate_search()
+    def search_for_peak_refined_coordinate_search(self):
+            return self._search_for_peak_with_forced_optimizer('Refined Coordinate Search')
 
     def search_for_peak_bayesian_refiner(self):
         """Experimental BO refinement after the normal coordinate search.
