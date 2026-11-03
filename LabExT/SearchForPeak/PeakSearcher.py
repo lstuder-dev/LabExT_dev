@@ -80,14 +80,6 @@ def fixed_gradient_ascent(measure_fn, start_coordinates, radius, number_of_initi
     x_measured = [measure(x, start_coordinates[1]) for x in x_points]
     x_max = float(x_points[np.argmax(x_measured)])
 
-    # create new plotting dataset for measurement
-    meas_plot = PlotData(ObservableList(), ObservableList(),
-                        'scatter', color=color_strings[dimidx])
-    if dimidx < len(rf_start_coordinates) / 2:
-        self.plots_left.append(meas_plot)
-    else:
-        self.plots_right.append(meas_plot)
-
 
     y_points = np.linspace(y_bounds[0],y_bounds[1],number_of_initial_points)
     for y in y_points:
@@ -103,8 +95,6 @@ def fixed_gradient_ascent(measure_fn, start_coordinates, radius, number_of_initi
         candidates = [(x+delta, y), (x-delta, y), (x, y+delta), (x, y-delta)]
         candidates = [c for c in candidates if x_bounds[0] <= c[0] <= x_bounds[1]
                                   and y_bounds[0] <= c[1] <= y_bounds[1]]
-
-        
 
         values = [measure(cx,cy) for cx,cy in candidates]
 
@@ -1208,6 +1198,40 @@ class PeakSearcher(Measurement):
                         n_averages=int(self._param_value('(Ascent) Measurements per point', 1)),
                         label='Fixed gradient ascent'
                     )
+
+                    for stage_info in ascent_info['per stage']:
+                        dims = stage_info['dims']
+                        samples = np.asarray(stage_info['sampled coordinates'], dtype=float)
+                        powers = stage_info['sampled powers dBm']
+                        stage_start = stage_info['start coordinates']
+                        best_coord = stage_info['max coord']
+                        best_power = stage_info['max value']
+
+                        for local_dim, dimidx in enumerate(dims):
+                            color = f'C{dimidx}'
+                            dimension_name = self._dimension_names[dimidx]
+
+                            meas_plot = PlotData(ObservableList(), ObservableList(),
+                                                 'scatter', color=color)
+                            meas_plot.x.extend(
+                                (samples[:, local_dim] - stage_start[local_dim]).tolist())
+                            meas_plot.y.extend(powers)
+
+                            # empty line series: only carries the legend entry
+                            # (same role as fit_plot in the coordinate search)
+                            fit_plot = PlotData(ObservableList(), ObservableList(),
+                                                color=color, label=dimension_name)
+
+                            opt_pos_plot = PlotData(ObservableList(), ObservableList(),
+                                                    marker='x', markersize=10, color=color)
+                            opt_pos_plot.x.extend([float(best_coord[local_dim] - stage_start[local_dim])])
+                            opt_pos_plot.y.append(float(best_power))
+
+                            target_plots = self.plots_left if dimidx < len(start_coordinates) / 2 else self.plots_right
+                            target_plots.append(meas_plot)
+                            target_plots.append(fit_plot)
+                            target_plots.append(opt_pos_plot)
+
                     results['fitting information']['Fixed gradient ascent'] = ascent_info
 
 
@@ -1228,7 +1252,7 @@ class PeakSearcher(Measurement):
 
                 #LINS: add ELIF for refined coordinate Search
                 elif str(peak_optimizer).lower() == 'refined coordinate search':
-                    def run_coordinate_search(rf_radius, rf_step_size, rf_start_coordinates):
+                    def run_coordinate_search(rf_radius, rf_step_size, rf_start_coordinates, pass_idx, original_start):
                         color_strings = ['C' + str(i) for i in range(10)]
 
                         pass_coordinates = list(rf_start_coordinates)
@@ -1242,12 +1266,24 @@ class PeakSearcher(Measurement):
                             dimension_name = self._dimension_names[dimidx]
     
                             # create new plotting dataset for measurement
+                            plot_color = color_strings[(dimidx + 4 * pass_idx) % len(color_strings)]
+                            plot_label = dimension_name if pass_idx == 0 else f"{dimension_name} (pass {pass_idx + 1})"
+                            axis_offset = p_start - original_start[dimidx]
+
                             meas_plot = PlotData(ObservableList(), ObservableList(),
-                                                'scatter', color=color_strings[dimidx])
+                                                'scatter', color=plot_color)
+                            fit_plot = PlotData(ObservableList(), ObservableList(),
+                                                color=plot_color, label=plot_label)
+                            opt_pos_plot = PlotData(ObservableList(), ObservableList(),
+                                                    marker='x', markersize=10, color=plot_color)
                             if dimidx < len(rf_start_coordinates) / 2:
                                 self.plots_left.append(meas_plot)
+                                self.plots_left.append(fit_plot)
+                                self.plots_left.append(opt_pos_plot)
                             else:
                                 self.plots_right.append(meas_plot)
+                                self.plots_right.append(fit_plot)
+                                self.plots_right.append(opt_pos_plot)
                                
                             # differentiate between the two types of SfP
                             d_range = np.arange(-rf_radius, rf_radius +
@@ -1270,7 +1306,7 @@ class PeakSearcher(Measurement):
 
                                 # save data
                                 # do not trigger plot update just yet
-                                meas_plot.x.extend([d_current])
+                                meas_plot.x.extend([d_current + axis_offset])
                                 meas_plot.y.append(loss)
 
                                 IL_meas[measidx] = loss
@@ -1302,6 +1338,9 @@ class PeakSearcher(Measurement):
                                 optimized_target = measured_max_offset
                                 sfp_msg = f'Moving to optimized fiber location.'
 
+                                opt_pos_plot.x.extend([optimized_target + axis_offset])
+                                opt_pos_plot.y.append(measured_max_power)
+
                             if measured_max_power is not None:
                                 measured_through_power = measured_max_power
                     
@@ -1324,9 +1363,9 @@ class PeakSearcher(Measurement):
                         return dimension_results, pass_coordinates, measured_through_power
 
                     def run_refined_coordinate_search(radius_1, step_size_1, radius_2, step_size_2, rf_start_coordinates):
-                        rough_info, new_start_coordinates, rough_power = run_coordinate_search(radius_1, step_size_1, rf_start_coordinates)
+                        rough_info, new_start_coordinates, rough_power = run_coordinate_search(radius_1, step_size_1, rf_start_coordinates, 0, rf_start_coordinates)
                         fine_start_coordinates = new_start_coordinates.copy()
-                        fine_info, final_coordinates, fine_power = run_coordinate_search(radius_2, step_size_2, fine_start_coordinates)
+                        fine_info, final_coordinates, fine_power = run_coordinate_search(radius_2, step_size_2, fine_start_coordinates, 1, rf_start_coordinates)
                         
                         return {"rough_info":rough_info, "fine_info":fine_info, "final_coordinates": final_coordinates.copy(), "fine_power":fine_power}
 
