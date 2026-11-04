@@ -92,8 +92,8 @@ def plot_data(number_of_points, XL, YL, ZL, XR, YR, ZR, file_name, tol):
     # Plot the surface
     fig, (ax_left, ax_right) = plt.subplots(1, 2, subplot_kw={"projection": "3d"}, figsize=(15, 8))
 
-    ax_left.plot_surface(XL,YL,ZL,cmap="Oranges",alpha=0.6)
-    ax_right.plot_surface(XR,YR,ZR,cmap="Oranges",alpha=0.6)
+    ax_left.plot_surface(XL,YL,ZL,cmap="Blues",alpha=0.6)
+    ax_right.plot_surface(XR,YR,ZR,cmap="Blues",alpha=0.6)
     
     ax_left.set_xlabel('x position (µm)')
     ax_left.set_ylabel('y position (µm)')
@@ -171,7 +171,7 @@ def script(file_name, program_folder, data_showing, tol, id_name = None):
 
 program_folder = Path(__file__).resolve().parent
 
-file_name = '261026_measurement_ID52_validation_fine_1640_1.0_41_0.1'
+file_name = '260928_measurement_ID1_1530_1.0_41_0.25'
 id_name = 'ID7'
 ridge_tolerance = 0
 
