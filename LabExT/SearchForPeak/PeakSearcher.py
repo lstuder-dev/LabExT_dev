@@ -24,6 +24,7 @@ from scipy.special import erf
 #LINS: Added for reporting
 from datetime import datetime
 from pprint import pformat
+from pathlib import Path
 
 try:
     # Sobol points give a better space-filling initial design/candidate cloud than pure random points.
@@ -804,14 +805,24 @@ class PeakSearcher(Measurement):
         start_power = measure_all(start)
         n_samples = 1
         per_stage = []
+        sampled_points_and_powers = []
         try:
             for dims in dims_per_stage:
+                stage_start = current.copy()
                 sub_measure = make_sub_measure(measure_all, current, dims)
                 coords, _, stage_info = algo(sub_measure, [current[d] for d in dims], radius_um, **algo_kwargs)
+                full_samples = []
+                for local_coords in stage_info["sampled coordinates"]:
+                    full_coords = stage_start.copy()
+                    for dim, value in zip(dims, local_coords):
+                        full_coords[dim] = float(value) 
+                    full_samples.append(full_coords)
                 for d, v in zip(dims, coords):
                     current[d] = v
                 n_samples += stage_info["n_samples"]
                 per_stage.append({"dims": list(dims), **stage_info})
+                sampled_points_and_powers.append({"sampled coordinates": full_samples,
+                                                  "sampled powers dBm": stage_info["sampled powers dBm"]})
 
             final_power = measure_all(current)
             n_samples += 1
@@ -823,8 +834,20 @@ class PeakSearcher(Measurement):
             self._move_stages_absolute(start)
             raise
 
+        sampled_coordinates = [
+            point
+            for stage in sampled_points_and_powers
+            for point in stage["sampled coordinates"]
+        ]
+        sampled_powers = [
+            power
+            for stage in sampled_points_and_powers
+            for power in stage["sampled powers dBm"]
+        ]
+
         info = {"method": label, "start power dBm": float(start_power),
-                "n_samples": n_samples, "per stage": per_stage}
+                "n_samples": n_samples, "per stage": per_stage, "sampled coordinates": sampled_coordinates,
+                "sampled powers dBm": sampled_powers, }
         return current, float(final_power), info
 
     def _add_bayesian_projection_plots(self, bayes_info, label_prefix="Bayesian"):
@@ -1261,6 +1284,10 @@ class PeakSearcher(Measurement):
 
                         dimension_results = {}
 
+                        full_samples = []
+
+                        sampled_powers_dBm = []
+
                         for dimidx, p_start in enumerate(rf_start_coordinates):
     
                             dimension_name = self._dimension_names[dimidx]
@@ -1311,6 +1338,9 @@ class PeakSearcher(Measurement):
 
                                 IL_meas[measidx] = loss
 
+                                #saving of position and power
+                                full_samples.append(pass_coordinates.copy())
+                                sampled_powers_dBm.append(float(loss))
     
                             self.logger.debug('SFP results:')
                             self.logger.debug('coordinates:' + str(d_range))
@@ -1360,14 +1390,17 @@ class PeakSearcher(Measurement):
                             pass_coordinates[dimidx] = optimized_target + p_start
                             self._move_stages_absolute(pass_coordinates)
 
-                        return dimension_results, pass_coordinates, measured_through_power
+                        return dimension_results, full_samples, sampled_powers_dBm, pass_coordinates, measured_through_power
 
                     def run_refined_coordinate_search(radius_1, step_size_1, radius_2, step_size_2, rf_start_coordinates):
-                        rough_info, new_start_coordinates, rough_power = run_coordinate_search(radius_1, step_size_1, rf_start_coordinates, 0, rf_start_coordinates)
+                        rough_info, measured_points_1, measured_powers_1, new_start_coordinates, rough_power = run_coordinate_search(radius_1, step_size_1, rf_start_coordinates, 0, rf_start_coordinates)
                         fine_start_coordinates = new_start_coordinates.copy()
-                        fine_info, final_coordinates, fine_power = run_coordinate_search(radius_2, step_size_2, fine_start_coordinates, 1, rf_start_coordinates)
-                        
-                        return {"rough_info":rough_info, "fine_info":fine_info, "final_coordinates": final_coordinates.copy(), "fine_power":fine_power}
+                        fine_info, measured_points_2, measured_powers_2, final_coordinates, fine_power = run_coordinate_search(radius_2, step_size_2, fine_start_coordinates, 1, rf_start_coordinates)
+
+                        measured_points = measured_points_1 + measured_points_2
+                        measured_powers = measured_powers_1 + measured_powers_2
+
+                        return {"rough_info":rough_info, "fine_info":fine_info, "final_coordinates": final_coordinates.copy(), "fine_power":fine_power, "sampled coordinates":measured_points, "sampled powers dBm":measured_powers }
 
                     radius_1 =  float(self._param_value('(Refined CS) Radius 1', 10.0))
                     step_size_1 = float(self._param_value('(Refined CS) Step Size 1', 2))
@@ -1405,6 +1438,11 @@ class PeakSearcher(Measurement):
                     # do sweep for every dimension
                     # color cycle strings for matplotlib
                     color_strings = ['C' + str(i) for i in range(10)]
+
+                    #LINS: Added logging of points
+                    full_samples = []
+                    sampled_powers_dBm = []
+
                     for dimidx, p_start in enumerate(start_coordinates):
 
                         dimension_name = self._dimension_names[dimidx]
@@ -1484,6 +1522,13 @@ class PeakSearcher(Measurement):
                             meas_plot.x = d_range
                             meas_plot.y = IL_meas
 
+                            #LIN: Added logging of points
+                            for offset, power in zip(d_range, IL_meas):
+                                sample_coordinates = current_coordinates.copy()
+                                sample_coordinates[dimidx] = p_start + float(offset)
+                                full_samples.append(sample_coordinates)
+                                sampled_powers_dBm.append(float(power))
+
                         elif sfp_type == 'stepped SfP':
                             # create range of N measurement points from x-Delta to
                             # x+Delta
@@ -1504,6 +1549,10 @@ class PeakSearcher(Measurement):
 
                                 # take IL measurement
                                 loss = self.instr_powermeter.power
+
+                                #LIN: Added logging of points
+                                full_samples.append(current_coordinates.copy())
+                                sampled_powers_dBm.append(float(loss))
 
                                 # save data
                                 # do not trigger plot update just yet
@@ -1602,7 +1651,8 @@ class PeakSearcher(Measurement):
                             'measured max offset um': measured_max_offset,
                             'measured max coordinate um': measured_max_coordinate,
                             'estimated target coordinate um': float(p_start + optimized_target),
-                            'estimated target power dBm': float(estimated_through_power)}
+                            'estimated target power dBm': float(estimated_through_power),
+                            }
 
                         # reset speed and acceleration to original
                         self.mover.speed_xy = v0
@@ -1611,6 +1661,11 @@ class PeakSearcher(Measurement):
                         # final move of fiber in this dimensions final decision
                         current_coordinates[dimidx] = optimized_target + p_start
                         self._move_stages_absolute(current_coordinates)
+
+                    results['fitting information']['Coordinate Search'] = {
+                            "sampled coordinates": full_samples,
+                            "sampled powers dBm": sampled_powers_dBm,
+                        }
 
                 if str(peak_optimizer).lower() == 'coordinate search + bayesian refiner':
                     # Experimental local BO refinement after the normal coordinate
@@ -1658,6 +1713,9 @@ class PeakSearcher(Measurement):
         results['optimized location'] = current_coordinates.copy()
         results['optimized through power'] = estimated_through_power
 
+
+        #LINS:reporting of peak search data in a seperate folder, left-x-pos, left-y-pos, right-x-pos, right-y-pos, power
+
         #LINS:reporting of data
         #report_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"Dev_Linus","peak_search_results.txt")
         #with open(report_path, "a", encoding="utf-8") as report_file:
@@ -1670,60 +1728,99 @@ class PeakSearcher(Measurement):
             #report_file.write(f"Starting power: {results['start through power']:.3f} dBm\n")
             #report_file.write(f"Ending power: {results['optimized through power']:.3f} dBm\n")
             #report_file.write("\n")
+
+        #report_path = os.path.join(
+        #    os.path.dirname(os.path.abspath(__file__)),
+        #    "PeakSearcherData",
+        #    "peak_search_results.csv"
+        #)
+
+        date_prefix = time.strftime('%y%m%d_%H%M%S')
+        parent_folder = Path(__file__).resolve().parent
+        csv_file = parent_folder / "PeakSearcherData" /f'{date_prefix}_{results["optimizer"]}.csv'
+
+        result_key_by_optimizer = {
+            "bayesian 4d": "Bayesian 4D",
+            "fixed gradient ascent": "Fixed gradient ascent",
+            "golden section": "Golden section",
+            "refined coordinate search": "Refined Coordinate Search",
+            "coordinate search": "Coordinate Search",
+        }
+
+        optimizer_name = str(peak_optimizer).strip().casefold()
+        result_key = result_key_by_optimizer[optimizer_name]
+        method_results = results["fitting information"][result_key]
+
+        data_notation_1 = method_results["sampled coordinates"]
+        data_notation_2 = method_results["sampled powers dBm"]
+
+        if len(data_notation_1) != len(data_notation_2):
+            raise ValueError("Sampled coordinate and power counts do not match.")
+
+        with open(csv_file, 'w',newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['left_x_pos', 'left_y_pos', 'right_x_pos', 'right_y_pos', 'measured_power'])
+            for coordinates, power in zip(data_notation_1, data_notation_2):
+                if len(coordinates) not in (2,4):
+                    raise ValueError(f"Expected either 2 or 4 coordinates, got {len(coordinates)} coordinates.")
+                coordinates = list(coordinates) + [None] * (4 - len(coordinates))
+                writer.writerow([*coordinates, power])
+
+
         
-        report_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "Dev_Linus",
-            "peak_search_results.csv"
-        )
+        #report_path = os.path.join(
+        #    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        #    "Dev_Linus",
+        #    "peak_search_results.csv"
+        #)
 
-        timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+        #timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
 
-        with open(report_path, "a", newline="", encoding="utf-8") as report_file:
-            fieldnames = [
-                "timestamp",
-                "algorithm",
-                "time_taken_s",
-                "start_left_x_um",
-                "start_left_y_um",
-                "start_right_x_um",
-                "start_right_y_um",
-                "end_left_x_um",
-                "end_left_y_um",
-                "end_right_x_um",
-                "end_right_y_um",
-                "starting_power_dBm",
-                "ending_power_dBm",
-                "power_improvement_dB",
-            ]
+        #with open(report_path, "a", newline="", encoding="utf-8") as report_file:
+        #    fieldnames = [
+        #        "timestamp",
+        #        "algorithm",
+        #        "time_taken_s",
+        #        "start_left_x_um",
+        #        "start_left_y_um",
+        #        "start_right_x_um",
+        #        "start_right_y_um",
+        #        "end_left_x_um",
+        #        "end_left_y_um",
+        #        "end_right_x_um",
+        #        "end_right_y_um",
+        #        "starting_power_dBm",
+        #        "ending_power_dBm",
+        #        "power_improvement_dB",
+        #    ]
 
-            writer = csv.DictWriter(report_file, fieldnames=fieldnames)
+        #    writer = csv.DictWriter(report_file, fieldnames=fieldnames)
 
-            if report_file.tell() == 0:
-                writer.writeheader()
+        #    if report_file.tell() == 0:
+        #        writer.writeheader()
 
-            start = list(results["start location"])
-            end = list(results["optimized location"])
+        #    start = list(results["start location"])
+        #    end = list(results["optimized location"])
 
-            # Support either a single stage (2 coordinates) or two stages (4).
-            start += [None] * (4 - len(start))
-            end += [None] * (4 - len(end))
+        #    # Support either a single stage (2 coordinates) or two stages (4).
+        #    start += [None] * (4 - len(start))
+        #    end += [None] * (4 - len(end))
 
-            writer.writerow({
-                "timestamp": timestamp,
-                "algorithm": results["optimizer"],
-                "time_taken_s": round(results["optimizer time seconds"], 3),
-                "start_left_x_um": start[0],
-                "start_left_y_um": start[1],
-                "start_right_x_um": start[2],
-                "start_right_y_um": start[3],
-                "end_left_x_um": end[0],
-                "end_left_y_um": end[1],
-                "end_right_x_um": end[2],
-                "end_right_y_um": end[3],
-                "starting_power_dBm": round(results["start through power"], 3),
-                "ending_power_dBm": round(results["optimized through power"], 3),
-            })
+        #    writer.writerow({
+        #        "timestamp": timestamp,
+        #        "algorithm": results["optimizer"],
+        #        "time_taken_s": round(results["optimizer time seconds"], 3),
+        #        "start_left_x_um": start[0],
+        #        "start_left_y_um": start[1],
+        #        "start_right_x_um": start[2],
+        #        "start_right_y_um": start[3],
+        #        "end_left_x_um": end[0],
+        #        "end_left_y_um": end[1],
+        #        "end_right_x_um": end[2],
+        #        "end_right_y_um": end[3],
+        #        "starting_power_dBm": round(results["start through power"], 3),
+        #        "ending_power_dBm": round(results["optimized through power"], 3),
+        #    })
 
 
         return results
