@@ -802,10 +802,11 @@ class PeakSearcher(Measurement):
         def measure_all(coords):
             return self._measure_power_at_coordinates(coords, pause_time_ms, n_averages)
 
+        sampled_points_and_powers = []
         start_power = measure_all(start)
         n_samples = 1
         per_stage = []
-        sampled_points_and_powers = []
+        sampled_points_and_powers.append({"sampled coordinates": [start.copy()], "sampled powers dBm": [float(start_power)]})
         try:
             for dims in dims_per_stage:
                 stage_start = current.copy()
@@ -825,6 +826,7 @@ class PeakSearcher(Measurement):
                                                   "sampled powers dBm": stage_info["sampled powers dBm"]})
 
             final_power = measure_all(current)
+            sampled_points_and_powers.append({"sampled coordinates": [current.copy()], "sampled powers dBm": [float(final_power)]})
             n_samples += 1
             if not np.isfinite(final_power) or final_power < start_power:
                 current, final_power = start.copy(), start_power
@@ -1687,6 +1689,9 @@ class PeakSearcher(Measurement):
                         label='Bayesian refiner',
                     )
                     results['fitting information']['Bayesian refiner'] = bayes_info
+                    coordinate_info = results['fitting information']['Coordinate Search']
+                    coordinate_info['sampled coordinates'].extend(bayes_info['sampled coordinates'])
+                    coordinate_info['sampled powers dBm'].extend(bayes_info['sampled powers dBm'])
                     self._add_bayesian_projection_plots(bayes_info, label_prefix='Bayesian refiner')
 
         #LINS: time stopping
@@ -1738,6 +1743,7 @@ class PeakSearcher(Measurement):
         date_prefix = time.strftime('%y%m%d_%H%M%S')
         parent_folder = Path(__file__).resolve().parent
         csv_file = parent_folder / "PeakSearcherData" /f'{date_prefix}_{results["optimizer"]}.csv'
+        csv_file.parent.mkdir(parents=True, exist_ok=True)
 
         result_key_by_optimizer = {
             "bayesian 4d": "Bayesian 4D",
@@ -1745,28 +1751,34 @@ class PeakSearcher(Measurement):
             "golden section": "Golden section",
             "refined coordinate search": "Refined Coordinate Search",
             "coordinate search": "Coordinate Search",
+            "coordinate search + bayesian refiner":"Coordinate Search"
         }
 
         optimizer_name = str(peak_optimizer).strip().casefold()
-        result_key = result_key_by_optimizer[optimizer_name]
-        method_results = results["fitting information"][result_key]
 
-        data_notation_1 = method_results["sampled coordinates"]
-        data_notation_2 = method_results["sampled powers dBm"]
+        try:
+            result_key = result_key_by_optimizer[optimizer_name]
+            method_results = results["fitting information"][result_key]
 
-        if len(data_notation_1) != len(data_notation_2):
-            raise ValueError("Sampled coordinate and power counts do not match.")
+            data_notation_1 = method_results["sampled coordinates"]
+            data_notation_2 = method_results["sampled powers dBm"]
 
-        with open(csv_file, 'w',newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(['left_x_pos', 'left_y_pos', 'right_x_pos', 'right_y_pos', 'measured_power'])
-            for coordinates, power in zip(data_notation_1, data_notation_2):
-                if len(coordinates) not in (2,4):
-                    raise ValueError(f"Expected either 2 or 4 coordinates, got {len(coordinates)} coordinates.")
-                coordinates = list(coordinates) + [None] * (4 - len(coordinates))
-                writer.writerow([*coordinates, power])
+            if len(data_notation_1) != len(data_notation_2):
+                self.logger.warning("Skipping peak-search CSV export: sampled coordinate and power counts do not match.")
 
+            elif any(len(coordinates) not in (2,4) for coordinates in data_notation_1):
+                self.logger.warning(f"Skipping peak-search CSV export: expected either 2 or 4 coordinates, received an invalid number of coordinates")
 
+            else:
+                with open(csv_file, 'w',newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(['left_x_pos', 'left_y_pos', 'right_x_pos', 'right_y_pos', 'measured_power'])
+                    for coordinates, power in zip(data_notation_1, data_notation_2):
+                        coordinates = list(coordinates) + [None] * (4 - len(coordinates))
+                        writer.writerow([*coordinates, power])
+
+        except Exception:
+            self.logger.exception("Failed to export peak-search data to CSV.")
         
         #report_path = os.path.join(
         #    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
