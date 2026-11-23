@@ -105,8 +105,8 @@ def plot_data(number_of_points, XL, YL, ZL, XR, YR, ZR, file_name, tol):
     ax_right.set_zlabel('power (mW)')
     ax_right.set_title('Right Stage')
 
-    ridge_and_max(XL,YL,ZL,number_of_points,ax_left,'3D', tol)
-    ridge_and_max(XR,YR,ZR,number_of_points,ax_right,'3D', tol)
+    #ridge_and_max(XL,YL,ZL,number_of_points,ax_left,'3D', tol)
+    #ridge_and_max(XR,YR,ZR,number_of_points,ax_right,'3D', tol)
 
     fig.suptitle(f"{file_name}")
 
