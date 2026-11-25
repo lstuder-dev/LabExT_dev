@@ -171,7 +171,7 @@ def script(file_name, program_folder, data_showing, tol, id_name = None):
 
 program_folder = Path(__file__).resolve().parent
 
-file_name = '260928_measurement_ID1_1530_1.0_41_0.25'
+file_name = '261026_measurement_ID52_validation_fine_1640_1.0_41_0.1'
 id_name = 'ID7'
 ridge_tolerance = 0
 
