@@ -1740,10 +1740,13 @@ class PeakSearcher(Measurement):
         #    "peak_search_results.csv"
         #)
 
+
+        wavelength_nm = self.parameters['Laser wavelength'].value
         date_prefix = time.strftime('%y%m%d_%H%M%S')
         parent_folder = Path(__file__).resolve().parent
-        csv_file = parent_folder / "PeakSearcherData" /f'{date_prefix}_{results["optimizer"]}.csv'
+        csv_file = parent_folder / "PeakSearcherData" /f'{date_prefix}_{results["optimizer"]}_{wavelength_nm}.csv'
         csv_file.parent.mkdir(parents=True, exist_ok=True)
+
 
         result_key_by_optimizer = {
             "bayesian 4d": "Bayesian 4D",
@@ -1772,6 +1775,12 @@ class PeakSearcher(Measurement):
             else:
                 with open(csv_file, 'w',newline='') as csvfile:
                     writer = csv.writer(csvfile)
+
+                    writer.writerow(['Search algorithm', results['optimizer'], '', '', ''])
+                    writer.writerow(['Parameter', 'Value', '', '', ''])
+                    for name, value in results['parameter'].items():
+                        writer.writerow([name, value, '', '', ''])
+
                     writer.writerow(['left_x_pos', 'left_y_pos', 'right_x_pos', 'right_y_pos', 'measured_power'])
                     for coordinates, power in zip(data_notation_1, data_notation_2):
                         coordinates = list(coordinates) + [None] * (4 - len(coordinates))
